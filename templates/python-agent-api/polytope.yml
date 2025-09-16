@@ -1,0 +1,100 @@
+modules:
+  - id: {{ project-name }}
+    info: "'Base' module for other modules in this file to build on."
+    module: polytope/python
+    params:
+      - id: cmd
+        info: The command to run
+        type: [default, str, ./bin/run]
+      - id: dev-mode
+        info: Whether to run in dev mode (with hot reload, debugging)
+        type: [default, bool, true]
+      - id: port
+        info: The port the API will run on
+        type: [default, int, 3030]
+      - id: restart-policy
+        info: Restart policy for the container.
+        type: [default, [enum, always, on-failure], always]
+      - id: id
+        info: The container ID to use.
+        type: [default, str, {{ project-name }}]
+      - id: create
+        info: Whether to create the container.
+        type: [default, [enum, never, always, when-missing], when-missing]
+    args:
+      id: pt.param id
+      image: astral/uv:python3.13-bookworm-slim
+      code: { type: repo, path: . }
+      cmd: pt.param cmd
+      restart:
+        policy: pt.param restart-policy
+      services: |-
+        #pt-js
+        params.cmd === "./bin/run"
+          ? [{ id: "{{ project-name }}", ports: [{ protocol: "http", port: params.port, 'expose-as': params.port }] }]
+          : null;
+      env:
+        - { name: HTTP_AUTORELOAD, value: pt.param dev-mode }
+        - { name: HTTP_PORT, value: pt.param port }
+        - { name: LOG_LEVEL, value: INFO }
+        - { name: OPPER_API_KEY, value: pt.secret opper-api-key }
+      mounts:
+        - { path: /root/.cache/, source: { type: volume, scope: project, id: {{ project-name | kebab_case}}-dependency-cache } }
+        - { path: /lib/py/opper-agent-sdk, source: { type: repo, path: lib/py/opper-agent-sdk } }
+  - id: {{ project-name }}-add
+    info: Adds one or more packages to the pyproject.toml file.
+    module: {{ project-name }}
+    params:
+      - id: packages
+        info: comma/whitespace-separated list of python packages to add to pyproject.toml
+        type: str
+    args:
+      id: {{ project-name }}-add
+      restart-policy: on-failure
+      cmd: '#pt-js "uv add --no-progress " + params.packages.replace(/[\s,]+/g, " ")'
+      create: always
+      
+  - id: {{ project-name }}-test
+    info: Run agent tests and evaluations
+    module: {{ project-name }}
+    args:
+      id: {{ project-name }}-test
+      restart-policy: on-failure
+      cmd: uv run pytest tests/ -v
+      create: always
+      
+  - id: {{ project-name }}-eval
+    info: Run agent evaluations on test cases
+    module: {{ project-name }}
+    args:
+      id: {{ project-name }}-eval
+      restart-policy: on-failure
+      cmd: uv run python -m backend.eval
+      create: always
+      
+  - id: {{ project-name }}-format
+    info: Format code with ruff
+    module: {{ project-name }}
+    args:
+      id: {{ project-name }}-format
+      restart-policy: on-failure
+      cmd: ./bin/format
+      create: always
+      
+  - id: {{ project-name }}-lint
+    info: Lint code with ruff
+    module: {{ project-name }}
+    args:
+      id: {{ project-name }}-lint
+      restart-policy: on-failure
+      cmd: ./bin/lint
+      create: always
+      
+  - id: {{ project-name }}-shell
+    info: Open a shell in the agent container for debugging
+    module: {{ project-name }}
+    args:
+      id: {{ project-name }}-shell
+      restart-policy: on-failure
+      cmd: /bin/bash
+      create: always

@@ -1,0 +1,34 @@
+tools:
+  create-agent-api:
+    info: |
+      Creates a new Python agent API prepared for coding with Opper Agent SDK.
+      Always use this when creating a new agent.
+      After creating the folder that this starts a dev container and service for the created in Polytope.
+      The project uses uv+FastAPI.
+      Runs in a container handled by Polytope.
+      The environment is set to dev and hot reload is enabled.
+      Defines an additional module for dependency management in the subprojects polytope.yml file.
+    await: [scaffold-agent-service]
+    params:
+      - id: path
+        info: Path relative to the project root where the service should be created.
+        type: [default, str, api]
+    run:
+      - id: scaffold-agent-service
+        module: polytope/scaffold
+        args:
+          actions:
+            - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: python-agent-api}
+              path: pt.param path
+              add-to-tools: [{tool: default, call: api}]
+            - template: https://github.com/opper-ai/opperai-agent-sdk.git
+              path: lib/py/opper-agent-sdk
+              print-files: []
+              on-exists: skip
+      - id: api
+        after: {step: scaffold-agent-service}
+        code: |-
+          #pt-clj
+          (-> (clojure.string/replace (:path params) #"[^A-Za-z0-9-]*$" "")
+              (clojure.string/replace  #".*/" "")
+              (pt/call-module {}))

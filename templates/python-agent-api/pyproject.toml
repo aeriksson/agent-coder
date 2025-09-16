@@ -1,0 +1,25 @@
+[project]
+name = "backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard-no-fastapi-cloud-cli]==0.116.1",
+    "uvicorn[standard]==0.35.0",
+    "pydantic>=2.6.0",
+    "opperai>=0.3.0",
+    "rich>=13.7.0",
+    "typing-extensions>=4.9.0",
+    "opper-agent-sdk",
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+app = "backend.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+opper-agent-sdk = { path = "../lib/py/opper-agent-sdk", editable = true }
