@@ -4,4 +4,4 @@
 
 trap 'jobs -p | xargs -r kill' EXIT
 
-exec uv run ruff format
+exec ./bin/uv-run ruff format

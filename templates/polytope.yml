@@ -1,13 +1,13 @@
 tools:
   create-agent-api:
     info: |
-      Creates a new Python agent API prepared for coding with Opper Agent SDK.
-      Always use this when creating a new agent.
-      After creating the folder that this starts a dev container and service for the created in Polytope.
-      The project uses uv+FastAPI.
-      Runs in a container handled by Polytope.
-      The environment is set to dev and hot reload is enabled.
-      Defines an additional module for dependency management in the subprojects polytope.yml file.
+      Creates a complete Python agent API with FastAPI server already running.
+      Always use this when creating a new agent project - DO NOT create additional APIs.
+      This automatically starts a dev container with the API service running on a port.
+      The project uses uv+FastAPI with Opper Agent SDK integration.
+      Includes agent management endpoints, WebSocket monitoring, and testing tools.
+      The environment is set to dev with hot reload enabled.
+      Defines additional modules for dependency management and script execution.
     await: [scaffold-agent-service]
     params:
       - id: path
@@ -32,3 +32,23 @@ tools:
           (-> (clojure.string/replace (:path params) #"[^A-Za-z0-9-]*$" "")
               (clojure.string/replace  #".*/" "")
               (pt/call-module {}))
+  create-agent-dashboard:
+    info: |
+      Creates an agent management dashboard UI for monitoring and testing Opper agents.
+      This React dashboard connects to agent APIs to provide real-time monitoring,
+      agent testing, and execution event streaming via WebSocket.
+      The project uses bun+shadcn+react-router v7 with agent-specific components.
+      Runs in a container handled by Polytope with hot reload enabled.
+    await: [scaffold-agent-dashboard]
+    run:
+      - id: scaffold-agent-dashboard
+        module: polytope/scaffold
+        args:
+          actions:
+            - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: agent-management-ui}
+              path: agent-dashboard
+              on-conflict: skip
+              add-to-tools: [{tool: default, call: agent-dashboard}]
+      - id: agent-dashboard
+        after: {step: scaffold-agent-dashboard}
+        code: '#pt-clj (pt/call-module "agent-dashboard" {})'

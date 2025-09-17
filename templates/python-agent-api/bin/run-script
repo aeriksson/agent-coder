@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+"""Run a script with auto-detection of missing pyproject.toml entries."""
+
+. "$(dirname "$0")/init"
+
+# Check if script name was provided
+if [ $# -eq 0 ]; then
+    echo "Usage: bin/run-script <script-name> [args...]"
+    echo "Example: bin/run-script test-analyzer"
+    exit 1
+fi
+
+SCRIPT_NAME="$1"
+shift  # Remove script name from arguments
+
+# Check if script file exists but isn't in pyproject.toml, auto-add it
+SCRIPT_FILE="src/scripts/${SCRIPT_NAME//-/_}.py"
+
+if [ -f "$SCRIPT_FILE" ] && ! grep -q "^${SCRIPT_NAME} =" pyproject.toml 2>/dev/null; then
+    echo "🔧 Auto-fixing: Script '$SCRIPT_NAME' exists but not in pyproject.toml"
+    "$(dirname "$0")/add-script" "$SCRIPT_NAME" maybe-add-to-pyproject
+    if [ $? -eq 0 ]; then
+        echo "✅ Added '$SCRIPT_NAME' to pyproject.toml"
+    fi
+fi
+
+# Run the script with remaining arguments
+exec ./bin/uv-run "$SCRIPT_NAME" "$@"

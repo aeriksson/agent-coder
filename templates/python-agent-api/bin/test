@@ -4,4 +4,4 @@
 
 trap 'jobs -p | xargs -r kill' EXIT
 
-exec ./bin/uv-run ruff check --fix
+exec "$(dirname "$0")/uv-run" pytest tests/ -v

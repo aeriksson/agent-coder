@@ -1,20 +1,22 @@
 """
-Simple example agents to get you started.
+Example agent demonstrating opper-agent-sdk usage.
 
-These are minimal examples showing both tools and flow modes.
-Replace with your own agent logic.
+This shows the basic pattern for building tools-mode agents.
+Replace with your own agent logic for production use.
+
+See the opper-agent-sdk examples for more patterns:
+- Tools mode: examples/tools/tools_mode_example.py
+- Flow mode: examples/flow/flow_mode_example.py
 """
 
-from opper_agent import Agent, tool, step, Workflow, ExecutionContext
-from pydantic import BaseModel, Field
-from .. import conf
+from opper_agent import Agent, tool
 
 
-# Example tools for tools mode
+# Example tools showing different input/output types
 @tool
 def greet(name: str) -> str:
     """Greet someone by name."""
-    return f"Hello, {name}!"
+    return f"Hello, {name}! Welcome to the Opper Agent SDK."
 
 
 @tool
@@ -32,65 +34,27 @@ def calculate(expression: str) -> str:
         return f"Error: {str(e)}"
 
 
-# Example data models for flow mode
-class SimpleRequest(BaseModel):
-    message: str = Field(description="The user's message")
+@tool
+def count_words(text: str) -> str:
+    """Count words in a text string."""
+    word_count = len(text.split())
+    return f"The text contains {word_count} words."
 
 
-class SimpleResponse(BaseModel):
-    response: str = Field(description="The processed response")
-
-
-# Example workflow steps
-@step
-async def process_message(request: SimpleRequest, ctx: ExecutionContext) -> SimpleResponse:
-    """Process the user's message."""
-    processed = f"Processed: {request.message}"
-    return SimpleResponse(response=processed)
-
-
-def get_example_tools_agent() -> Agent:
+def get_coding_agent():
     """
-    Create a simple tools-mode agent.
-
-    This agent can dynamically use tools based on the user's request.
-    Customize this with your own tools and description.
+    Create an example agent with basic tools.
+    
+    This demonstrates the minimal pattern for building agents:
+    1. Define tools with @tool decorator
+    2. Create Agent with tools list
+    3. Agent automatically gets tool selection and reasoning
     """
-    api_key = conf.get_opper_api_key()
-
     return Agent(
-        name="ExampleToolsAgent",
-        description=("A simple example agent that can greet people and do basic calculations. Replace this with your own agent logic."),
-        tools=[greet, calculate],
-        opper_api_key=api_key,
+        name="example-agent",
+        description="An example agent that can greet people, do math, and count words",
+        tools=[greet, calculate, count_words],
         verbose=True
     )
 
 
-def get_example_flow_agent() -> Agent:
-    """
-    Create a simple flow-mode agent.
-
-    This agent executes a structured workflow.
-    Customize this with your own workflow steps.
-    """
-    api_key = conf.get_opper_api_key()
-
-    # Create a simple workflow
-    workflow = (
-        Workflow(
-            id="simple-example-workflow",
-            input_model=SimpleRequest,
-            output_model=SimpleResponse,
-        )
-        .then(process_message)
-        .commit()
-    )
-
-    return Agent(
-        name="ExampleFlowAgent",
-        description="A simple example workflow agent that processes messages. Replace this with your own workflow logic.",
-        flow=workflow,
-        opper_api_key=api_key,
-        verbose=True
-    )

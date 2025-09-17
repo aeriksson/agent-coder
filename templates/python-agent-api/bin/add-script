@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# Adds a new script to the project
+
+. "$(dirname "$0")/init"
+
+# Function to echo (can be silenced)
+echoh() {
+    if [ "${SILENT_OUTPUT:-}" != "true" ]; then
+        echo "$@"
+    fi
+}
+
+# Function to extract a TOML section
+extract_toml_section() {
+    local file="$1"
+    local section="$2"
+
+    if [ ! -f "$file" ]; then
+        return 1
+    fi
+
+    # Use awk to extract the section
+    awk -v section="[$section]" '
+    BEGIN { in_section = 0 }
+    $0 ~ "^" section "$" { in_section = 1; next }
+    /^\[.*\]$/ && in_section { in_section = 0 }
+    in_section && /^[[:space:]]*[^[:space:]#]/ { print $0 }
+    ' "$file"
+}
+
+# Function to check if a key exists in pyproject.toml scripts section
+script_key_exists() {
+    local key="$1"
+    local scripts_content
+
+    scripts_content=$(extract_toml_section "pyproject.toml" "project.scripts")
+
+    # Check if key exists (ignoring whitespace and values)
+    echo "$scripts_content" | grep -q "^[[:space:]]*${key}[[:space:]]*="
+}
+
+# Function to add script to pyproject.toml robustly
+add_to_pyproject() {
+    local script_name="$1"
+    local script_value="$2"
+    local temp_file
+
+    if script_key_exists "$script_name"; then
+        echoh "✅ Script '$script_name' already in pyproject.toml"
+        return 0
+    fi
+
+    temp_file=$(mktemp)
+
+    # Use awk to add the entry
+    awk -v key="$script_name" -v value="$script_value" '
+    BEGIN {
+        in_scripts = 0
+        added = 0
+    }
+
+    # Detect [project.scripts] section
+    /^\[project\.scripts\]$/ {
+        in_scripts = 1
+        print $0
+        next
+    }
+
+    # Detect any other section
+    /^\[.*\]$/ && in_scripts && !added {
+        # Add our entry before this new section
+        print key " = \"" value "\""
+        added = 1
+        in_scripts = 0
+        print $0
+        next
+    }
+
+    # If we reach EOF while in scripts section, add entry
+    END {
+        if (in_scripts && !added) {
+            print key " = \"" value "\""
+        }
+    }
+
+    # Print all other lines
+    { print $0 }
+    ' pyproject.toml > "$temp_file"
+
+    # Replace original file
+    mv "$temp_file" pyproject.toml
+    echoh "✅ Added '$script_name' to pyproject.toml"
+    return 0
+}
+
+# Function to create script file
+create_script_file() {
+    local script_name="$1"
+    local script_file="$2"
+
+    if [ -f "$script_file" ]; then
+        echoh "📄 Script already exists: $script_file"
+    else
+        # Ensure directory exists
+        mkdir -p "$(dirname "$script_file")"
+
+        cat > "$script_file" << EOF
+#!/usr/bin/env python3
+"""
+${script_name} script.
+
+Add your script description here.
+"""
+
+def main():
+    """Main function for ${script_name}."""
+    print("🚀 Running ${script_name}...")
+
+    # Add your script logic here
+    # Example: test an agent, analyze data, etc.
+
+    print("✅ ${script_name} completed successfully!")
+
+if __name__ == "__main__":
+    main()
+EOF
+        echoh "✅ Created script: $script_file"
+    fi
+}
+
+# Function to show completion message
+show_completion() {
+    local script_name="$1"
+    local script_file="$2"
+
+    echoh ""
+    echoh "🎉 Script scaffolded successfully!"
+    echoh ""
+    echoh "📁 Script location: $script_file"
+    echoh ""
+    echoh "Next steps:"
+    echoh "1. Edit $script_file to add your logic"
+    echoh "2. Test locally: bin/uv-run $script_name"
+    echoh "3. Have agents call: __polytope__run(module: ${script_name%%-*}-run-script, args: {script: $script_name})"
+}
+
+# Main logic
+main() {
+    # Check if script name was provided
+    if [ $# -eq 0 ]; then
+        echoh "Usage: bin/add-script <script-name> [maybe-add-to-pyproject]"
+        echoh "Example: bin/add-script test-analyzer"
+        echoh "Example: bin/add-script test-analyzer maybe-add-to-pyproject"
+        exit 1
+    fi
+
+    SCRIPT_NAME="$1"
+    MODE="${2:-}"
+    SCRIPT_FILE="src/scripts/${SCRIPT_NAME//-/_}.py"
+    SCRIPT_VALUE="scripts.${SCRIPT_NAME//-/_}:main"
+
+    # Set silent mode for maybe-add-to-pyproject
+    if [ "$MODE" = "maybe-add-to-pyproject" ]; then
+        SILENT_OUTPUT="true"
+        # Only add to pyproject.toml, don't create file or show completion
+        add_to_pyproject "$SCRIPT_NAME" "$SCRIPT_VALUE"
+        exit $?
+    fi
+
+    # Normal mode: create file and add to pyproject
+    create_script_file "$SCRIPT_NAME" "$SCRIPT_FILE"
+    add_to_pyproject "$SCRIPT_NAME" "$SCRIPT_VALUE"
+    show_completion "$SCRIPT_NAME" "$SCRIPT_FILE"
+}
+
+main "$@"

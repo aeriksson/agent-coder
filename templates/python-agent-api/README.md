@@ -1,124 +1,76 @@
 # {{ project-name }}
 
-An AI agent API powered by the [Opper Agent SDK](https://github.com/opper-ai/opperai-agent-sdk). This template provides a clean starting point for building intelligent agents that can reason, use tools, and execute structured workflows.
+FastAPI template for building AI agents with the Opper SDK. Includes optional PostgreSQL/Redis persistence and real-time WebSocket monitoring.
 
-## 🚀 Running the API
-
-**The API is automatically started when you created it using `add-{{ project-name }}`.**
-
-To inspect which steps run, use: `list-services-in-job`
-To view logs, use: `get-logs-in-job{"step":"backend"}`
-
-**Do not manually run the `{{ project-name }}` module - it's already running by calling `add-{{ project-name }}`.**
-
-## 🤖 What You Get
-
-This template includes:
-
-- **FastAPI backend** with clean agent endpoints
-- **Example agents** showing both tools and flow modes
-- **Simple tools** as starting points for your own
-- **Clean project structure** optimized for agent development
-
-## 🛠️ Development Instructions
-
-### 1. Set up your Opper API key
-
-Add your Opper API key to the `polytope.yml` environment variables:
-
-```yaml
-env:
-  - { name: OPPER_API_KEY, value: your-api-key-here }
-```
-
-Get your API key at [https://platform.opper.ai](https://platform.opper.ai).
-
-### 2. Customize the agents
-
-The template includes simple example agents in `src/backend/agents/`:
-
-- `example_agents.py` - Shows both tools mode and flow mode patterns
-- Replace these with your own agent logic
-
-### 3. Add your own tools
-
-Create tools in `src/backend/tools/`:
-
-```python
-from opper_agent import tool
-
-@tool
-def my_custom_tool(param: str) -> str:
-    """Description of what this tool does."""
-    return f"Processed: {param}"
-```
-
-### 4. Create workflows (Flow Mode)
-
-For structured multi-step tasks, create workflows:
-
-```python
-from opper_agent import step, Workflow, ExecutionContext
-
-@step
-async def my_step(data: MyInput, ctx: ExecutionContext) -> MyOutput:
-    result = await ctx.llm(
-        name="my_step",
-        instructions="Process this data...",
-        input_schema=MyInput,
-        output_schema=MyOutput,
-        input=data,
-    )
-    return MyOutput.model_validate(result)
-```
-
-## 🔗 API Endpoints
-
-Once running, your API provides:
-
-- `GET /` - API information
-- `GET /health` - Health check  
-- `POST /process` - Main agent processing endpoint
-- `POST /agents/coding` - Direct access to tools mode agent
-- `POST /agents/workflow` - Direct access to flow mode agent
-- `GET /agents/info` - Agent information
-- `GET /docs` - Interactive API documentation
-
-## 📝 Example Usage
+## Quick Start
 
 ```bash
-# Process a goal with the tools agent
-curl -X POST "http://localhost:3030/process" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "goal": "Calculate 25 * 4 and greet Alice",
-    "agent_type": "coding", 
-    "max_iterations": 5
-  }'
+# Test the included demo agent
+polytope run {{ project-name }}-run-script script=demo
 
-# Process with the workflow agent
-curl -X POST "http://localhost:3030/process" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "goal": "Process this message: Hello World",
-    "agent_type": "workflow"
-  }'
+# Create a new script
+polytope run {{ project-name }}-add-script script=my-analyzer
+
+# Add dependencies
+polytope run {{ project-name }}-add packages="your-package"
+
+# Run tests
+polytope run {{ project-name }}-test
 ```
 
-## 🔧 Configuration
+## Environment Variables
 
-Configuration is handled via environment variables (see `src/backend/conf.py`):
+```bash
+export OPPER_API_KEY=your_api_key
+# Optional: USE_POSTGRES=true, USE_REDIS=true
+```
 
-- `OPPER_API_KEY` - Your Opper API key (required)
-- `LOG_LEVEL` - Logging level (default: INFO)
-- `HTTP_HOST` - Server host (default: 0.0.0.0)
-- `HTTP_PORT` - Server port (default: 8000)
-- `HTTP_AUTORELOAD` - Auto-reload on changes (default: false)
+## Agent Development
 
-Add new environment variables to both `conf.py` and `polytope.yml`.
+Build agents using testing scripts for rapid iteration. Scripts provide isolated test environments, repeatable workflows, and clear verification of agent behavior - essential for developing reliable AI agents.
 
-## 📚 Learn More
+**Create test scripts**: `__polytope__run(module: api-add-script, args: {script: script-name})`
 
-- [Opper Agent SDK Documentation](https://docs.opper.ai)
-- [Opper Platform](https://platform.opper.ai)
-- [FastAPI Documentation](https://fastapi.tiangolo.com)
+## Choosing Agent Mode
+
+**Tools Mode** - Use for interactive, dynamic problem-solving:
+- User asks varied questions that need different tool combinations
+- One-shot requests that don't need state between calls
+- Agent needs to dynamically reason about which tools to use
+- Example: "Calculate the square root of 144 then convert to binary"
+
+**Flow Mode** - Use for structured, multi-step processes:
+- Clear sequence of steps that build on each other
+- Need to maintain data/state between steps
+- Complex workflows with branching or parallel processing
+- Example: "Research topic → gather sources → analyze → write report"
+
+**Quick Decision**:
+- Need to remember things between steps? → Flow Mode
+- One request, multiple possible tool combinations? → Tools Mode
+
+```python
+# Example agent
+from opper_agent import Agent, tool
+
+@tool
+def my_tool(param: str) -> str:
+    """Process a parameter and return a result."""
+    return f"Processed: {param}"
+
+def get_my_agent():
+    return Agent(
+        name="my-agent",
+        description="An example agent that processes parameters",
+        tools=[my_tool],
+        verbose=True
+    )
+```
+
+
+## Key Endpoints
+
+- `GET /docs` - API documentation
+- `GET /agents` - List agents  
+- `POST /agents/{name}/test` - Test agent
+- `WebSocket /ws/agents` - Real-time events

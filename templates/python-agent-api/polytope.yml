@@ -1,6 +1,6 @@
 modules:
   - id: {{ project-name }}
-    info: "'Base' module for other modules in this file to build on."
+    info: "FastAPI agent server (already running). Use this as base for other tools."
     module: polytope/python
     params:
       - id: cmd
@@ -14,7 +14,7 @@ modules:
         type: [default, int, 3030]
       - id: restart-policy
         info: Restart policy for the container.
-        type: [default, [enum, always, on-failure], always]
+        type: [default, [enum, always, on-failure, never], always]
       - id: id
         info: The container ID to use.
         type: [default, str, {{ project-name }}]
@@ -40,9 +40,10 @@ modules:
         - { name: OPPER_API_KEY, value: pt.secret opper-api-key }
       mounts:
         - { path: /root/.cache/, source: { type: volume, scope: project, id: {{ project-name | kebab_case}}-dependency-cache } }
-        - { path: /lib/py/opper-agent-sdk, source: { type: repo, path: lib/py/opper-agent-sdk } }
+        - { path: /lib/py/opper-agent-sdk, source: { type: repo, path: /lib/py/opper-agent-sdk } }
+
   - id: {{ project-name }}-add
-    info: Adds one or more packages to the pyproject.toml file.
+    info: Adds one or more packages to the pyproject.toml file. Use this instead of manually editing pyproject.toml to ensure dependencies are installed correctly.
     module: {{ project-name }}
     params:
       - id: packages
@@ -50,51 +51,71 @@ modules:
         type: str
     args:
       id: {{ project-name }}-add
-      restart-policy: on-failure
-      cmd: '#pt-js "uv add --no-progress " + params.packages.replace(/[\s,]+/g, " ")'
+      restart-policy: never
+      cmd: '#pt-js "./bin/uv-add " + params.packages.replace(/[\s,]+/g, " ")'
       create: always
-      
+
   - id: {{ project-name }}-test
     info: Run agent tests and evaluations
     module: {{ project-name }}
     args:
       id: {{ project-name }}-test
-      restart-policy: on-failure
-      cmd: uv run pytest tests/ -v
+      restart-policy: never
+      cmd: ./bin/test
       create: always
-      
+
   - id: {{ project-name }}-eval
     info: Run agent evaluations on test cases
     module: {{ project-name }}
     args:
       id: {{ project-name }}-eval
-      restart-policy: on-failure
-      cmd: uv run python -m backend.eval
+      restart-policy: never
+      cmd: ./bin/eval
       create: always
-      
+
   - id: {{ project-name }}-format
     info: Format code with ruff
     module: {{ project-name }}
     args:
       id: {{ project-name }}-format
-      restart-policy: on-failure
+      restart-policy: never
       cmd: ./bin/format
       create: always
-      
+
   - id: {{ project-name }}-lint
     info: Lint code with ruff
     module: {{ project-name }}
     args:
       id: {{ project-name }}-lint
-      restart-policy: on-failure
+      restart-policy: never
       cmd: ./bin/lint
       create: always
-      
-  - id: {{ project-name }}-shell
-    info: Open a shell in the agent container for debugging
+
+  - id: {{ project-name }}-add-script
+    info: Scaffold a new Python script and add it to pyproject.toml. Run this to create test scripts for your agents!
     module: {{ project-name }}
+    params:
+      - id: script
+        info: Script name (will create src/scripts/{script}.py and add to pyproject.toml)
+        type: str
     args:
-      id: {{ project-name }}-shell
-      restart-policy: on-failure
-      cmd: /bin/bash
+      id: {{ project-name }}-add-script
+      restart-policy: never
+      cmd: '#pt-js "./bin/add-script " + params.script'
+      create: always
+
+  - id: {{ project-name }}-run-script
+    info: Run a Python script defined in pyproject.toml
+    module: {{ project-name }}
+    params:
+      - id: script
+        info: Script name from pyproject.toml [project.scripts]
+        type: str
+      - id: args
+        info: Optional arguments to pass to the script
+        type: [default, str, ""]
+    args:
+      id: {{ project-name }}-run-script
+      restart-policy: never
+      cmd: '#pt-js "./bin/uv-run " + params.script + " " + params.args'
       create: always
