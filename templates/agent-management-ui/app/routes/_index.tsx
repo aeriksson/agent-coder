@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import type { Route } from "./+types/_index";
-import { Bot, Activity, Settings, Play } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { AgentGrid } from "~/components/AgentGrid";
+import { Bot, Activity, Settings } from "lucide-react";
+import { AgentSidebar } from "~/components/AgentSidebar";
 import { ExecutionViewer } from "~/components/ExecutionViewer";
 import { fetchAgents, type Agent } from "@/lib/agentClient";
 
@@ -17,7 +15,6 @@ export function meta({}: Route.MetaArgs) {
 export default function Dashboard() {
   const [agents, setAgents] = useState<Record<string, Agent>>({});
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [showExecution, setShowExecution] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +40,10 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <Activity className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading agents...</p>
+          <Activity className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-400" />
+          <p className="text-gray-400">Loading agents...</p>
         </div>
       </div>
     );
@@ -54,73 +51,59 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <p className="text-destructive mb-4">Failed to load agents: {error}</p>
-            <Button onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="bg-gray-800 rounded-lg p-6 text-center">
+          <p className="text-red-400 mb-4">Failed to load agents: {error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Bot className="h-8 w-8 text-primary" />
-            <h1 className="text-xl font-semibold">Agent Dashboard</h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">
-              {Object.keys(agents).length} agents
-            </span>
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-gray-900 text-white flex">
+      {/* Sidebar */}
+      <AgentSidebar 
+        agents={agents}
+        selectedAgent={selectedAgent}
+        onSelectAgent={setSelectedAgent}
+      />
+      
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Agent Grid */}
-          <div className="lg:col-span-2">
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-lg font-medium">Available Agents</h2>
-              {selectedAgent && (
-                <Button
-                  onClick={() => setShowExecution(true)}
-                  className="flex items-center space-x-2"
-                >
-                  <Play className="h-4 w-4" />
-                  <span>Test Agent</span>
-                </Button>
-              )}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="border-b border-gray-700 bg-gray-800">
+          <div className="px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Bot className="h-6 w-6 text-blue-400" />
+              <h1 className="text-lg font-medium">
+                {selectedAgent ? `Agent: ${selectedAgent}` : 'Select an Agent'}
+              </h1>
             </div>
-            <AgentGrid 
-              agents={agents} 
-              selectedAgent={selectedAgent}
-              onSelectAgent={setSelectedAgent}
-            />
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-400">
+                {Object.keys(agents).length} agents available
+              </span>
+              <button className="p-2 text-gray-400 hover:text-white">
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
           </div>
+        </header>
 
-          {/* Execution Viewer */}
-          <div className="lg:col-span-1">
-            <ExecutionViewer 
-              isVisible={showExecution}
-              selectedAgent={selectedAgent}
-              onClose={() => setShowExecution(false)}
-            />
-          </div>
+        {/* Execution Viewer */}
+        <div className="flex-1">
+          <ExecutionViewer 
+            selectedAgent={selectedAgent}
+            agentSchema={selectedAgent ? agents[selectedAgent] : undefined}
+          />
         </div>
-      </main>
+      </div>
     </div>
   );
 }
