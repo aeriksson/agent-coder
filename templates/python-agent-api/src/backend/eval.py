@@ -9,7 +9,6 @@ import json
 import time
 from typing import Any
 from pydantic import BaseModel
-from .agents import get_example_tools_agent, get_example_flow_agent
 
 
 class EvalCase(BaseModel):
@@ -17,7 +16,7 @@ class EvalCase(BaseModel):
     id: str
     description: str
     goal: str
-    agent_type: str = "coding"  # "coding" or "workflow"
+    agent_name: str
     expected_outcome: str | None = None
     max_iterations: int = 10
 
@@ -32,44 +31,24 @@ class EvalResult(BaseModel):
     error: str | None = None
 
 
-# Example evaluation cases
-EXAMPLE_EVAL_CASES = [
-    EvalCase(
-        id="basic_greeting",
-        description="Test basic greeting functionality",
-        goal="Say hello to Alice",
-        agent_type="coding",
-        expected_outcome="greeting"
-    ),
-    EvalCase(
-        id="simple_math",
-        description="Test basic math calculation",
-        goal="Calculate 15 + 27",
-        agent_type="coding",
-        expected_outcome="42"
-    ),
-    EvalCase(
-        id="workflow_processing",
-        description="Test workflow message processing",
-        goal="Process this message: Testing workflow",
-        agent_type="workflow",
-        expected_outcome="processed message"
-    ),
-]
+def run_eval_case(case: EvalCase, agent_registry) -> EvalResult:
+    """
+    Run a single evaluation case.
 
+    Args:
+        case: The evaluation case to run
+        agent_registry: The agent registry to get agents from
 
-def run_eval_case(case: EvalCase) -> EvalResult:
-    """Run a single evaluation case."""
+    Returns:
+        EvalResult with the outcome
+    """
     start_time = time.time()
 
     try:
-        # Get the appropriate agent
-        if case.agent_type == "coding":
-            agent = get_example_tools_agent()
-        elif case.agent_type == "workflow":
-            agent = get_example_flow_agent()
-        else:
-            raise ValueError(f"Unknown agent type: {case.agent_type}")
+        # Get the agent from registry
+        agent = agent_registry.get_agent(case.agent_name)
+        if not agent:
+            raise ValueError(f"Agent '{case.agent_name}' not found in registry")
 
         # Set max iterations
         agent.max_iterations = case.max_iterations
@@ -106,17 +85,23 @@ def run_eval_case(case: EvalCase) -> EvalResult:
         )
 
 
-def run_evaluations(cases: list[EvalCase] = None) -> list[EvalResult]:
-    """Run all evaluation cases."""
-    if cases is None:
-        cases = EXAMPLE_EVAL_CASES
+def run_evaluations(cases: list[EvalCase], agent_registry) -> list[EvalResult]:
+    """
+    Run all evaluation cases.
 
+    Args:
+        cases: List of evaluation cases to run
+        agent_registry: The agent registry to get agents from
+
+    Returns:
+        List of EvalResult objects
+    """
     print(f"Running {len(cases)} evaluation cases...")
 
     results = []
     for i, case in enumerate(cases, 1):
         print(f"[{i}/{len(cases)}] Running: {case.description}")
-        result = run_eval_case(case)
+        result = run_eval_case(case, agent_registry)
         results.append(result)
 
         if result.success:
@@ -150,28 +135,31 @@ def print_eval_summary(results: list[EvalResult]):
                 print(f"  - {result.case_id}: {result.error}")
 
 
-def main():
-    """Main evaluation function."""
-    print("🧪 Agent Evaluation Framework")
-    print("="*50)
+def load_eval_cases(filepath: str) -> list[EvalCase]:
+    """
+    Load evaluation cases from a JSON file.
 
-    # Run evaluations
-    results = run_evaluations()
+    Args:
+        filepath: Path to the JSON file containing eval cases
 
-    # Print summary
-    print_eval_summary(results)
+    Returns:
+        List of EvalCase objects
+    """
+    with open(filepath, "r") as f:
+        data = json.load(f)
 
-    # Save results to file
-    results_data = [result.dict() for result in results]
-    with open("eval_results.json", "w") as f:
+    return [EvalCase(**case) for case in data]
+
+
+def save_results(results: list[EvalResult], filepath: str = "eval_results.json"):
+    """
+    Save evaluation results to a JSON file.
+
+    Args:
+        results: List of EvalResult objects
+        filepath: Path where to save the results
+    """
+    results_data = [result.model_dump() for result in results]
+    with open(filepath, "w") as f:
         json.dump(results_data, f, indent=2, default=str)
-
-    print("\nResults saved to eval_results.json")
-
-    # Exit with error code if any tests failed
-    failed_count = len([r for r in results if not r.success])
-    exit(failed_count)
-
-
-if __name__ == "__main__":
-    main()
+    print(f"\nResults saved to {filepath}")

@@ -4,27 +4,9 @@ A React-based management dashboard for monitoring and testing Opper AI agents in
 
 React Router v7 application with Bun, TypeScript, Tailwind CSS, and shadcn/ui + Radix UI components.
 
-## Features
-
-🤖 **Agent Management**
-- View all available agents with their metadata
-- Real-time agent status monitoring
-- Agent selection and testing interface
-
-📊 **Execution Monitoring**
-- Live WebSocket streaming of agent events
-- Detailed execution logs and timestamps
-- Interactive goal testing interface
-
-🎨 **Modern UI**
-- Built with React Router v7 and shadcn/ui components
-- Responsive design with Tailwind CSS
-- Dark/light mode support
-- TypeScript throughout
-
 ## Usage
 
-This UI connects to an Opper Agent API backend (like the python-agent-api template) to provide a management interface.
+Management interface for the agent server.
 
 ### Environment Variables
 
@@ -34,58 +16,38 @@ This UI connects to an Opper Agent API backend (like the python-agent-api templa
 
 The UI runs on port 3000 by default and expects the agent API to be running on port 3030.
 
-### API Integration
+## For Coding Agents
 
-The dashboard connects to these API endpoints:
-- `GET /agents` - List available agents
-- `GET /agents/{name}` - Get agent details  
-- `POST /agents/{name}/test` - Test agent execution
-- `WebSocket /ws/agents` - Real-time event stream
+## 📁 Import Path Rules
 
-## 📁 Import Path Guidelines
+**CRITICAL**: Always use these import aliases:
 
-**CRITICAL**: This template uses specific import aliases that you MUST follow:
+- `~/` = `app/` directory - components, routes, app lib files (agentClient, callStore)
+- `@/` = project root - shared utilities
 
-### Use `~` for App Code (app/ directory)
 ```tsx
-// ✅ CORRECT - For files in app/ directory
-import { Button } from "~/components/ui/button";      // app/components/ui/button.tsx
-import { HomePage } from "~/routes/home";             // app/routes/home.tsx
+// ✅ CORRECT
+import { useCallStore } from "~/lib/callStore";     // app/lib/callStore.ts
+import { EventCard } from "~/components/EventCard"; // app/components/EventCard.tsx
+import { cn } from "@/lib/utils";                   // lib/utils.ts (ROOT, not app!)
+
+// ❌ WRONG
+import { cn } from "~/lib/utils";                   // utils is in ROOT lib/, not app/lib/
 ```
 
-### Use `@` for Root-Level Files
-```tsx
-// ✅ CORRECT - For files in project root
-import { apiClient } from "@/lib/apiClient";          // lib/apiClient.ts
-import { utils } from "@/lib/utils";                  // lib/utils.ts
-```
-
-### Path Mappings (from tsconfig.json)
-- `~/*` → `./app/*` (app directory only)
-- `@/*` → `./*` (project root)
-
-### ❌ Common Mistakes to Avoid
-```tsx
-// ❌ WRONG - Using ~ for root-level files
-import { apiClient } from "~/lib/apiClient";          // lib/ is not in app/
-
-// ❌ WRONG - Relative imports from routes
-import { Button } from "../../components/ui/button";  // Use ~ instead
-```
-
-**Rule**: If it's in `app/`, use `~`. If it's in project root, use `@`.
+**Remember**: `cn` utility is always `@/lib/utils`, everything else is likely `~/`
 
 ## Dependencies
 To add packages, use the polytope-mcp run tool:
 ```json
-{"module": "add-{{ project-name }}", "arguments": {"packages": "axios react-query"}}
+{"module": "{{ project-name }}-add", "arguments": {"packages": "axios react-query"}}
 ```
 
-## 🎨 CRITICAL: Theming & Styling Guidelines
+## Theming & Styling Guidelines
 
 This template uses **shadcn/ui's theme system** which automatically adapts to light/dark mode based on system preferences.
 
-### ✅ DO: Use Theme-Aware Classes
+### Use Theme-Aware Classes
 Always use shadcn/ui's semantic color classes that automatically adapt to the current theme:
 
 ```tsx
@@ -96,21 +58,13 @@ Always use shadcn/ui's semantic color classes that automatically adapt to the cu
 <div className="border border-border">
 ```
 
-### ❌ DON'T: Use Fixed Tailwind Colors
+### DON'T: Use Fixed Tailwind Colors
 Never use standard Tailwind color classes - they break theme consistency:
-
 ```tsx
 // WRONG - These will cause visibility issues
 <div className="bg-white text-black">        // ❌ Breaks in dark mode
 <div className="bg-gray-50 text-gray-900">   // ❌ No theme adaptation
 ```
-
-### Available Theme Classes
-shadcn/ui provides these semantic classes (all auto-adapt to light/dark):
-- **Main**: `background`, `foreground` (page background and default text)
-- **Components**: `card`, `popover`, `muted` (with matching `-foreground` variants)
-- **Interactive**: `primary`, `secondary`, `accent`, `destructive` (with `-foreground`)
-- **Form/UI**: `border`, `input`, `ring`
 
 ### Working with Colors
 When you need variations or special effects, use Tailwind's opacity modifiers:
@@ -121,16 +75,16 @@ When you need variations or special effects, use Tailwind's opacity modifiers:
 <div className="bg-gradient-to-r from-primary/20 to-secondary/20">
 ```
 
-### 🚨 ALWAYS Use shadcn/ui Components First
+### ALWAYS Use shadcn/ui Components First
 Never create custom HTML elements when shadcn components exist:
 
 ```tsx
-// ✅ CORRECT - Use shadcn components
+// CORRECT - Use shadcn components
 import { Button } from "~/components/ui/button";
 <Button variant="destructive" onClick={handleClick}>Click me</Button>
 <Button variant="outline">Cancel</Button>
 
-// ❌ WRONG - Manual button styling (even with semantic colors)
+// WRONG - Manual button styling (even with semantic colors)
 <button className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">
 ```
 

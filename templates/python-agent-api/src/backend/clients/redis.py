@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -25,14 +25,14 @@ class RedisConf:
 class RedisClient:
     """
     Lightweight Redis client for caching and session management.
-    
+
     Handles connection management and provides common operations
     for agent state caching and real-time data.
-    
+
     Only initializes if USE_REDIS is True in configuration.
     """
 
-    def __init__(self, config: Optional[RedisConf] = None):
+    def __init__(self, config: RedisConf | None = None):
         self._config = config
         self._redis = None
         self._initialized = False
@@ -44,7 +44,7 @@ class RedisClient:
         """Initialize the Redis client"""
         if not self._config:
             raise ValueError("RedisConf required")
-        
+
         self._initialized = True
         logger.info("Redis client initialized")
 
@@ -60,7 +60,7 @@ class RedisClient:
         while not self._connected:
             try:
                 import redis.asyncio as redis
-                
+
                 logger.info("Connecting to Redis...")
                 self._redis = redis.from_url(
                     self._config.get_connection_string(),
@@ -68,10 +68,10 @@ class RedisClient:
                     socket_connect_timeout=5,
                     socket_timeout=5
                 )
-                
+
                 # Test the connection
                 await self._redis.ping()
-                
+
                 self._connected = True
                 logger.info("Redis connection established successfully")
                 break
@@ -80,7 +80,7 @@ class RedisClient:
                 logger.error("redis package not installed. Add it with: uv add redis")
                 self._last_connection_error = "redis package not installed"
                 await asyncio.sleep(10)
-                
+
             except Exception as e:
                 self._last_connection_error = str(e)
                 logger.warning(f"Redis connection failed, retrying: {e}")
@@ -114,24 +114,24 @@ class RedisClient:
             self._initialized = False
             logger.info("Redis client closed")
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         """Get a value from Redis"""
         await self._ensure_connected()
         if not self._redis:
             return None
-        
+
         try:
             return await self._redis.get(key)
         except Exception as e:
             logger.error(f"Redis GET error: {e}")
             return None
 
-    async def set(self, key: str, value: str, ex: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: str, ex: int | None = None) -> bool:
         """Set a value in Redis with optional expiration"""
         await self._ensure_connected()
         if not self._redis:
             return False
-        
+
         try:
             await self._redis.set(key, value, ex=ex)
             return True
@@ -144,7 +144,7 @@ class RedisClient:
         await self._ensure_connected()
         if not self._redis:
             return False
-        
+
         try:
             result = await self._redis.delete(key)
             return result > 0
@@ -157,7 +157,7 @@ class RedisClient:
         await self._ensure_connected()
         if not self._redis:
             return False
-        
+
         try:
             result = await self._redis.exists(key)
             return result > 0
@@ -170,7 +170,7 @@ class RedisClient:
         await self._ensure_connected()
         if not self._redis:
             return False
-        
+
         try:
             await self._redis.publish(channel, message)
             return True
@@ -181,7 +181,7 @@ class RedisClient:
     async def is_connected(self) -> bool:
         """Check if Redis is connected and responsive (blocking)"""
         await self._ensure_connected()
-        
+
         if not self._redis:
             return False
 
@@ -191,7 +191,7 @@ class RedisClient:
         except Exception:
             return False
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """Check if Redis connection is healthy (non-blocking for health endpoints)"""
         if not self._initialized:
             return {"connected": False, "status": "not_initialized"}

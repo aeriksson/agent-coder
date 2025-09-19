@@ -4,33 +4,22 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard-no-fastapi-cloud-cli]==0.116.1",
-    "uvicorn[standard]==0.35.0",
-    "pydantic>=2.6.0",
-    "opperai>=0.3.0",
-    "rich>=13.7.0",
-    "typing-extensions>=4.9.0",
-    "opper-agent-sdk",
-    "pytest>=7.0.0",
-    "ruff>=0.1.0",
     "httpx>=0.28.1",
-]
-
-[project.optional-dependencies]
-postgres = [
+    "opper-agent-sdk",
+    "opperai>=0.3.0",
     "psycopg[binary,pool]>=3.2.0",
+    "pydantic>=2.6.0",
+    "pytest>=7.0.0",
+    "rich>=13.7.0",
+    "ruff>=0.1.0",
     "sqlmodel>=0.0.24",
-    "sqlalchemy[asyncio]>=2.0.0",
-]
-redis = [
-    "redis[hiredis]>=5.0.0",
-]
-websockets = [
+    "typing-extensions>=4.9.0",
+    "uvicorn[standard]==0.35.0",
     "websockets>=12.0",
 ]
 
 [project.scripts]
 app = "backend.main:main"
-demo = "scripts.demo:main"
 
 [build-system]
 requires = ["hatchling"]

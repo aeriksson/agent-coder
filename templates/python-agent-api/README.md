@@ -5,31 +5,31 @@ FastAPI template for building AI agents with the Opper SDK. Includes optional Po
 ## Quick Start
 
 ```bash
-# Test the included demo agent
-polytope run {{ project-name }}-run-script script=demo
-
-# Create a new script
-polytope run {{ project-name }}-add-script script=my-analyzer
+# Create a new agent
+__polytope__run(module: {{ project-name }}-add-agent, args: {name: research-assistant, description: "Helps with research tasks", mode: tools})
 
 # Add dependencies
-polytope run {{ project-name }}-add packages="your-package"
-
-# Run tests
-polytope run {{ project-name }}-test
+__polytope__run(module: {{ project-name }}-add, args: {packages: "your-package"})
 ```
 
-## Environment Variables
+## API Endpoints
 
-```bash
-export OPPER_API_KEY=your_api_key
-# Optional: USE_POSTGRES=true, USE_REDIS=true
-```
+- List agents: `GET /api/v1/agents`
+- Get agent details: `GET /api/v1/agents/{name}`
+- Execute agent: `POST /api/v1/agents/{name}/calls` - Body: `{"input_data": {"goal": "..."}}`
+- Get call result: `GET /api/v1/calls/{call_id}`
+- List all calls: `GET /api/v1/calls`
+- Cancel call: `POST /api/v1/calls/{call_id}/cancel`
+- Stream events: `WebSocket /api/v1/calls/{call_id}/events/stream`
 
-## Agent Development
+## Creating Agents
 
-Build agents using testing scripts for rapid iteration. Scripts provide isolated test environments, repeatable workflows, and clear verification of agent behavior - essential for developing reliable AI agents.
+**Create a new agent**: `__polytope__run(module: {{ project-name }}-add-agent, args: {name: agent-name, description: "What it does", mode: tools})`
 
-**Create test scripts**: `__polytope__run(module: api-add-script, args: {script: script-name})`
+This generates:
+- Agent file with proper scaffolding
+- Tools or workflow structure based on mode
+- Automatic registration in the agent registry
 
 ## Choosing Agent Mode
 
@@ -49,28 +49,9 @@ Build agents using testing scripts for rapid iteration. Scripts provide isolated
 - Need to remember things between steps? → Flow Mode
 - One request, multiple possible tool combinations? → Tools Mode
 
-```python
-# Example agent
-from opper_agent import Agent, tool
+## Testing Agents
 
-@tool
-def my_tool(param: str) -> str:
-    """Process a parameter and return a result."""
-    return f"Processed: {param}"
+If you need to create standalone test scripts, you can use:
+`__polytope__run(module: {{ project-name }}-add-script, args: {script: script-name})`
 
-def get_my_agent():
-    return Agent(
-        name="my-agent",
-        description="An example agent that processes parameters",
-        tools=[my_tool],
-        verbose=True
-    )
-```
-
-
-## Key Endpoints
-
-- `GET /docs` - API documentation
-- `GET /agents` - List agents  
-- `POST /agents/{name}/test` - Test agent
-- `WebSocket /ws/agents` - Real-time events
+This creates a script in `src/scripts/` that you can run with `python -m scripts.script_name`

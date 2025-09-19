@@ -172,7 +172,7 @@ def get_postgres_conf():
     """Get PostgreSQL connection configuration."""
     # Import here to avoid circular dependency
     from .clients.postgres import PostgresConf
-    
+
     return PostgresConf(
         database=env.parse(POSTGRES_DB),
         user=env.parse(POSTGRES_USER),
@@ -185,7 +185,7 @@ def get_postgres_pool_conf():
     """Get PostgreSQL connection pool configuration."""
     # Import here to avoid circular dependency
     from .clients.postgres import PostgresPoolConf
-    
+
     return PostgresPoolConf(
         min_size=env.parse(POSTGRES_POOL_MIN),
         max_size=env.parse(POSTGRES_POOL_MAX),
@@ -195,7 +195,7 @@ def get_redis_conf():
     """Get Redis connection configuration."""
     # Import here to avoid circular dependency
     from .clients.redis import RedisConf
-    
+
     return RedisConf(
         host=env.parse(REDIS_HOST),
         port=env.parse(REDIS_PORT),

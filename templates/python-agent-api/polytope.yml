@@ -1,7 +1,6 @@
-modules:
-  - id: {{ project-name }}
+tools:
+  {{ project-name }}:
     info: "FastAPI agent server (already running). Use this as base for other tools."
-    module: polytope/python
     params:
       - id: cmd
         info: The command to run
@@ -21,92 +20,119 @@ modules:
       - id: create
         info: Whether to create the container.
         type: [default, [enum, never, always, when-missing], when-missing]
-    args:
-      id: pt.param id
-      image: astral/uv:python3.13-bookworm-slim
-      code: { type: repo, path: . }
-      cmd: pt.param cmd
-      restart:
-        policy: pt.param restart-policy
-      services: |-
-        #pt-js
-        params.cmd === "./bin/run"
-          ? [{ id: "{{ project-name }}", ports: [{ protocol: "http", port: params.port, 'expose-as': params.port }] }]
-          : null;
-      env:
-        - { name: HTTP_AUTORELOAD, value: pt.param dev-mode }
-        - { name: HTTP_PORT, value: pt.param port }
-        - { name: LOG_LEVEL, value: INFO }
-        - { name: OPPER_API_KEY, value: pt.secret opper-api-key }
-      mounts:
-        - { path: /root/.cache/, source: { type: volume, scope: project, id: {{ project-name | kebab_case}}-dependency-cache } }
-        - { path: /lib/py/opper-agent-sdk, source: { type: repo, path: /lib/py/opper-agent-sdk } }
+    run:
+      - tool: polytope/python
+        args:
+          id: pt.param id
+          image: astral/uv:python3.13-bookworm-slim
+          code: { type: repo, path: . }
+          cmd: pt.param cmd
+          restart:
+            policy: pt.param restart-policy
+          services: |-
+            #pt-js
+            params.cmd === "./bin/run"
+              ? [{ id: "{{ project-name }}", ports: [{ protocol: "http", port: params.port, 'expose-as': params.port }] }]
+              : null;
+          env:
+            - { name: HTTP_AUTORELOAD, value: pt.param dev-mode }
+            - { name: HTTP_PORT, value: pt.param port }
+            - { name: LOG_LEVEL, value: INFO }
+            - { name: OPPER_API_KEY, value: pt.secret opper-api-key }
+          mounts:
+            - { path: /root/.cache/, source: { type: volume, scope: project, id: {{ project-name | kebab_case}}-dependency-cache } }
+            - { path: /lib/py/opper-agent-sdk, source: { type: repo, path: /lib/py/opper-agent-sdk } }
 
-  - id: {{ project-name }}-add
+  {{ project-name }}-add:
     info: Adds one or more packages to the pyproject.toml file. Use this instead of manually editing pyproject.toml to ensure dependencies are installed correctly.
-    module: {{ project-name }}
     params:
       - id: packages
         info: comma/whitespace-separated list of python packages to add to pyproject.toml
         type: str
-    args:
-      id: {{ project-name }}-add
-      restart-policy: never
-      cmd: '#pt-js "./bin/uv-add " + params.packages.replace(/[\s,]+/g, " ")'
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-add
+          restart-policy: never
+          cmd: '#pt-js "./bin/uv-add " + params.packages.replace(/[\s,]+/g, " ")'
+          create: always
 
-  - id: {{ project-name }}-test
+  {{ project-name }}-test:
     info: Run agent tests and evaluations
-    module: {{ project-name }}
-    args:
-      id: {{ project-name }}-test
-      restart-policy: never
-      cmd: ./bin/test
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-test
+          restart-policy: never
+          cmd: ./bin/test
+          create: always
 
-  - id: {{ project-name }}-eval
+  {{ project-name }}-eval:
     info: Run agent evaluations on test cases
-    module: {{ project-name }}
-    args:
-      id: {{ project-name }}-eval
-      restart-policy: never
-      cmd: ./bin/eval
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-eval
+          restart-policy: never
+          cmd: ./bin/eval
+          create: always
 
-  - id: {{ project-name }}-format
+  {{ project-name }}-format:
     info: Format code with ruff
-    module: {{ project-name }}
-    args:
-      id: {{ project-name }}-format
-      restart-policy: never
-      cmd: ./bin/format
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-format
+          restart-policy: never
+          cmd: ./bin/format
+          create: always
 
-  - id: {{ project-name }}-lint
+  {{ project-name }}-lint:
     info: Lint code with ruff
-    module: {{ project-name }}
-    args:
-      id: {{ project-name }}-lint
-      restart-policy: never
-      cmd: ./bin/lint
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-lint
+          restart-policy: never
+          cmd: ./bin/lint
+          create: always
 
-  - id: {{ project-name }}-add-script
+  {{ project-name }}-add-script:
     info: Scaffold a new Python script and add it to pyproject.toml. Run this to create test scripts for your agents!
-    module: {{ project-name }}
     params:
       - id: script
         info: Script name (will create src/scripts/{script}.py and add to pyproject.toml)
         type: str
-    args:
-      id: {{ project-name }}-add-script
-      restart-policy: never
-      cmd: '#pt-js "./bin/add-script " + params.script'
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-add-script
+          restart-policy: never
+          cmd: '#pt-js "./bin/add-script " + params.script'
+          create: always
 
-  - id: {{ project-name }}-run-script
+  {{ project-name }}-add-agent:
+    info: Create a new agent with scaffolding. Generates agent file, tools/workflow, and registration instructions.
+    params:
+      - id: name
+        info: Agent name in kebab-case (e.g., 'research-assistant', 'code-analyzer')
+        type: str
+      - id: description
+        info: Description of what the agent does
+        type: [default, str, "An AI agent that helps with various tasks"]
+      - id: mode
+        info: Agent mode - 'tools' for dynamic tool selection, 'flow' for structured workflows
+        type: [default, [enum, tools, flow], tools]
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-add-agent
+          restart-policy: never
+          cmd: '#pt-js "./bin/add-agent " + params.name + " \"" + params.description + "\" " + params.mode'
+          create: always
+
+  {{ project-name }}-run-script:
     info: Run a Python script defined in pyproject.toml
-    module: {{ project-name }}
     params:
       - id: script
         info: Script name from pyproject.toml [project.scripts]
@@ -114,8 +140,10 @@ modules:
       - id: args
         info: Optional arguments to pass to the script
         type: [default, str, ""]
-    args:
-      id: {{ project-name }}-run-script
-      restart-policy: never
-      cmd: '#pt-js "./bin/uv-run " + params.script + " " + params.args'
-      create: always
+    run:
+      - tool: {{ project-name }}
+        args:
+          id: {{ project-name }}-run-script
+          restart-policy: never
+          cmd: '#pt-js "./bin/uv-run " + params.script + " " + params.args'
+          create: always

@@ -1,13 +1,12 @@
-"""
-Simple agent examples using Opper SDK.
+# Agent registry for Opper SDK agents.
+# Add your agents to the AGENTS list to have them automatically registered.
+# Use the add-agent tool to scaffold new agents:
+#   __polytope__run(module: api-add-agent, args: {name: agent-name, mode: tools})
 
-This module contains minimal examples of:
-- Tools mode agent (dynamic reasoning)
-- Flow mode agent (structured workflow)
+# Registry of all agents with their registration names
+# Format: [("registration-name", agent_function), ...]
+AGENTS = [
+    # Agents will be added here by the add-agent tool
+]
 
-These are just starting points - customize for your specific use case.
-"""
-
-from .example_agents import get_coding_agent
-
-__all__ = ["get_coding_agent"]
+__all__ = ["AGENTS"]

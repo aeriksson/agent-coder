@@ -7,7 +7,6 @@ tools:
       The project uses uv+FastAPI with Opper Agent SDK integration.
       Includes agent management endpoints, WebSocket monitoring, and testing tools.
       The environment is set to dev with hot reload enabled.
-      Defines additional modules for dependency management and script execution.
     await: [scaffold-agent-service]
     params:
       - id: path
@@ -15,7 +14,7 @@ tools:
         type: [default, str, api]
     run:
       - id: scaffold-agent-service
-        module: polytope/scaffold
+        tool: polytope/scaffold
         args:
           actions:
             - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: python-agent-api}
@@ -32,17 +31,27 @@ tools:
           (-> (clojure.string/replace (:path params) #"[^A-Za-z0-9-]*$" "")
               (clojure.string/replace  #".*/" "")
               (pt/call-module {}))
+      - id: scaffold-agent-dashboard
+        tool: polytope/scaffold
+        args:
+          actions:
+            - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: agent-management-ui}
+              path: agent-dashboard
+              on-conflict: skip
+              add-to-tools: [{tool: default, call: agent-dashboard}]
+      - id: agent-dashboard
+        after: {step: scaffold-agent-dashboard}
+        code: '#pt-clj (pt/call-module "agent-dashboard" {})'
   create-agent-dashboard:
     info: |
       Creates an agent management dashboard UI for monitoring and testing Opper agents.
       This React dashboard connects to agent APIs to provide real-time monitoring,
       agent testing, and execution event streaming via WebSocket.
       The project uses bun+shadcn+react-router v7 with agent-specific components.
-      Runs in a container handled by Polytope with hot reload enabled.
     await: [scaffold-agent-dashboard]
     run:
       - id: scaffold-agent-dashboard
-        module: polytope/scaffold
+        tool: polytope/scaffold
         args:
           actions:
             - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: agent-management-ui}

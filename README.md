@@ -7,7 +7,7 @@ A coding agent flavor for the [Opper Agent SDK](https://github.com/opper-ai/oppe
 This provides a clean template for building AI agents using the Opper SDK. The template includes:
 
 - **FastAPI backend** with agent endpoints
-- **Example agents** showing tools and flow modes  
+- **Example agents** showing tools and flow modes
 - **Simple tools** as starting points
 - **Clean project structure** optimized for agent development
 
@@ -84,5 +84,5 @@ Try these prompts to test your setup:
 ### 1. **"Create a Python REST API client"**
 "Build me a Python REST API client class that can handle GET, POST, PUT, DELETE requests with proper error handling and authentication headers"
 
-### 2. **"Build a smart code reviewer agent"**  
+### 2. **"Build a smart code reviewer agent"**
 "Create an intelligent code review agent that can analyze Python code for bugs, security issues, performance problems, and style violations. It should provide detailed feedback with suggestions for improvement."

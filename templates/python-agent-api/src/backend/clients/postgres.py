@@ -1,7 +1,7 @@
 import asyncio
 import time
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 
@@ -56,10 +56,10 @@ class PostgresClient:
     Only initializes if USE_POSTGRES is True in configuration.
     """
 
-    def __init__(self, config: Optional[PostgresConf] = None, pool_config: Optional[PostgresPoolConf] = None):
+    def __init__(self, config: PostgresConf | None = None, pool_config: PostgresPoolConf | None = None):
         self._config = config
         self._pool_config = pool_config or PostgresPoolConf()
-        self._pool: Optional[AsyncConnectionPool] = None
+        self._pool: AsyncConnectionPool | None = None
         self._engine = None
         self._initialized = False
         self._connected = False
@@ -228,7 +228,7 @@ class PostgresClient:
         self._ensure_initialized()
         return self._engine
 
-    def get_pool(self) -> Optional[AsyncConnectionPool]:
+    def get_pool(self) -> AsyncConnectionPool | None:
         """Get the current connection pool (for advanced/raw SQL usage)"""
         return self._pool
 
@@ -256,7 +256,7 @@ class PostgresClient:
     async def get_session(self):
         """
         Get an AsyncSession for SQLModel operations with automatic transaction management.
-        
+
         Usage:
             async with client.get_session() as session:
                 user = User(name="John")
@@ -265,7 +265,7 @@ class PostgresClient:
                 # session.rollback() called automatically on exception
         """
         self._ensure_initialized()
-        
+
         async with AsyncSession(self._engine) as session:
             try:
                 yield session
@@ -292,7 +292,7 @@ class PostgresClient:
         except Exception:
             return False
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """Check if PostgreSQL connection is healthy (non-blocking for health endpoints)"""
         if not self._initialized:
             return {"connected": False, "status": "not_initialized"}

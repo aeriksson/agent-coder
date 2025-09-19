@@ -18,22 +18,22 @@ export const SchemaForm = ({ schema, onSubmit, disabled = false }: SchemaFormPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Basic validation for required fields
     const newErrors: any = {};
     const required = schema?.required || [];
-    
+
     for (const field of required) {
       if (!formData[field] && formData[field] !== false) {
         newErrors[field] = "This field is required";
       }
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setErrors({});
     onSubmit(formData);
   };
@@ -57,7 +57,7 @@ export const SchemaForm = ({ schema, onSubmit, disabled = false }: SchemaFormPro
           {fieldName}
           {required && <span className="text-red-500 ml-1">*</span>}
         </Label>
-        
+
         {description && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
@@ -173,7 +173,7 @@ export const SchemaForm = ({ schema, onSubmit, disabled = false }: SchemaFormPro
       {Object.entries(schema.properties).map(([fieldName, fieldSchema]: [string, any]) =>
         renderField(fieldName, fieldSchema)
       )}
-      
+
       <Button type="submit" disabled={disabled} className="w-full">
         Execute
       </Button>
