@@ -7,12 +7,37 @@ This module handles real-time event streaming for agent calls:
 """
 
 from uuid import UUID
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from ..models.calls import WSError, WSMessage
 from ..utils import log
 
 router = APIRouter(tags=["events"])
 logger = log.get_logger(__name__)
+
+
+@router.get("/calls/{call_id}/events")
+async def get_call_events(call_id: UUID, request: Request):
+    """
+    Get all events for a call.
+
+    Args:
+        call_id: Unique identifier of the call
+
+    Returns:
+        List of all events for the call
+
+    Raises:
+        HTTPException: If call not found
+    """
+    logger.info(f"GET /calls/{call_id}/events request received")
+
+    if not await request.app.state.call_repository.call_exists(call_id):
+        logger.warning(f"Call {call_id} not found")
+        raise HTTPException(status_code=404, detail=f"Call '{call_id}' not found")
+
+    events = await request.app.state.call_repository.get_call_events(call_id)
+    logger.info(f"Returning {len(events)} events for call {call_id}")
+    return {"events": events}
 
 
 @router.websocket("/calls/{call_id}/events/stream")

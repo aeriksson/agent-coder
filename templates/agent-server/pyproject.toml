@@ -1,5 +1,5 @@
 [project]
-name = "backend"
+name = "agent-server"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -19,7 +19,8 @@ dependencies = [
 ]
 
 [project.scripts]
-app = "backend.main:main"
+app = "agent_server.main:main"
+test-agent = "scripts.test_agent:main"
 
 [build-system]
 requires = ["hatchling"]

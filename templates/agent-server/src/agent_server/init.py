@@ -12,7 +12,7 @@ from sqlmodel import SQLModel
 from . import conf
 from .utils import log
 from .registry import AgentRegistry
-from .agents import AGENTS
+from .agents import AGENT_DEFINITIONS
 from .utils.agent_utils import cleanup_all_background_tasks
 
 logger = log.get_logger(__name__)
@@ -60,7 +60,6 @@ async def init_database(app: FastAPI) -> None:
         await app.state.postgres_client.initialize()
         await app.state.postgres_client.init_connection()
 
-        # Create tables after connection is established
         await app.state.postgres_client.create_tables(SQLModel.metadata)
         logger.info("PostgreSQL client initialized")
 
@@ -105,17 +104,17 @@ async def init_agents(app: FastAPI) -> None:
     # Start the event worker that will process all agent events
     await app.state.agent_registry.start_event_worker()
 
-    # Register all agents from the AGENTS list
+    # Register all agents from the AGENT_DEFINITIONS list
     try:
-        if AGENTS:
-            for agent_name, agent_func in AGENTS:
+        if AGENT_DEFINITIONS:
+            for agent_def in AGENT_DEFINITIONS:
                 try:
-                    agent = agent_func()
-                    app.state.agent_registry.register_agent(agent_name, agent)
+                    agent = agent_def.factory()
+                    app.state.agent_registry.register_agent(agent_def.name, agent)
                 except Exception as e:
-                    logger.error(f"Failed to initialize agent {agent_name}: {e}")
+                    logger.exception(f"Failed to initialize agent {agent_def.name}")
 
-            logger.info(f"Successfully registered {len(AGENTS)} agents")
+            logger.info(f"Successfully registered {len(AGENT_DEFINITIONS)} agents")
         else:
             logger.info("No agents configured. Create your first agent with: bin/add-agent <name>")
     except Exception as e:

@@ -65,14 +65,11 @@ class AgentRegistry:
         action_dict = data.get("action_result", {})
         iteration = data.get("iteration", 0)
 
-        # The Opper SDK ActionResult.result is defined as str, but tools might return dicts
-        # that get stringified. The success field might be in action_dict or inside the result.
         result = action_dict.get("result")
         success = action_dict.get("success", True)
         error_message = action_dict.get("error_message")
 
-        # If result is a string that looks like a Python dict, try to parse it
-        # (Opper SDK seems to stringify dicts using str() which gives Python syntax)
+        # Parse stringified Python dicts if needed
         if isinstance(result, str) and result.strip().startswith("{"):
             try:
                 import ast
@@ -107,7 +104,6 @@ class AgentRegistry:
         Handle goal_completed event from Opper SDK.
 
         Data structure: {"goal": str, "achieved": bool, "iterations": N, "final_result": Any}
-        or {"goal": str, "achieved": bool, "mode": "flow", "final_result": Any}
         """
         iterations = data.get("iterations")
         final_result = data.get("final_result")
@@ -143,15 +139,6 @@ class AgentRegistry:
         )
         await self.call_repository.register_call_done(call_id, result)
 
-    async def _handle_workflow_event(self, call_id: UUID, event_type: str, data: dict[str, Any]) -> None:
-        """
-        Handle workflow events from flow mode agents.
-
-        These could be expanded to create more detailed tracking.
-        """
-        logger.debug(f"Workflow event {event_type} for call {call_id}: {data}")
-        # Could create workflow-specific events here if needed
-        # For example, workflow_step_completed, workflow_decision_made, etc.
 
     async def _handle_error_event(self, call_id: UUID, data: Any) -> None:
         """
@@ -181,7 +168,6 @@ class AgentRegistry:
             - thought_created: Contains {"iteration": N, "thought": {...}}
             - action_executed: Contains {"iteration": N, "thought": {...}, "action_result": {...}}
             - goal_completed: Contains {"goal": str, "achieved": bool, "iterations": N, "final_result": Any}
-            - workflow_* events: From flow mode agents
             - error: Error occurred during execution
 
             TODO: Make this async when Opper SDK supports async callbacks
@@ -218,17 +204,23 @@ class AgentRegistry:
                 "max_iterations": agent.max_iterations if hasattr(agent, 'max_iterations') else 10,
                 "verbose": agent.verbose if hasattr(agent, 'verbose') else False,
                 "tools": [tool.name for tool in agent.tools] if hasattr(agent, 'tools') else [],
-                "workflow_id": agent.flow.id if hasattr(agent, 'flow') and agent.flow else None,
                 "input_schema": schema_info["input_schema"],
                 "output_schema": schema_info["output_schema"],
             }
         return result
 
-    async def execute_agent(self, agent_name: str, call_id: UUID, input_data: dict[str, Any]) -> Any:
+    async def execute_agent(self, agent_name: str, call_id: UUID, input_data: dict[str, Any], max_iterations: int | None = None) -> Any:
         """Execute an agent with the given input data."""
         agent = self.get_agent(agent_name)
         if not agent:
             raise ValueError(f"Agent '{agent_name}' not found")
+
+        # Set max_iterations if provided
+        original_max = None
+        if max_iterations is not None:
+            original_max = agent.max_iterations
+            agent.max_iterations = max_iterations
+            logger.info(f"Set max_iterations to {max_iterations} for call {call_id}")
 
         # Track this call-agent association
         self._call_agents[call_id] = agent_name
@@ -243,20 +235,13 @@ class AgentRegistry:
             # Register call as started
             await self.call_repository.register_call_started(call_id)
 
-            # The Opper SDK's process() is async but makes SYNCHRONOUS HTTP calls internally!
-            # This blocks the event loop. We need to run it in a thread with its own event loop.
+            # Run agent.process() in a thread pool to avoid blocking the main event loop
             def run_agent_in_thread():
                 """Run the async agent.process() in a new event loop in a thread."""
                 # Use asyncio.run() which creates a new event loop, runs the coroutine,
                 # and cleans up properly. This is thread-safe for parallel calls.
                 async def run_agent_async():
-                    if hasattr(agent, 'mode') and agent.mode == "flow":
-                        # Flow mode expects structured input
-                        return await agent.process(input_data)
-                    else:
-                        # Tools mode or unknown - try with goal string
-                        goal = input_data.get("goal", "")
-                        return await agent.process(goal)
+                    return await agent.process(input_data)
 
                 return asyncio.run(run_agent_async())
 
@@ -268,9 +253,6 @@ class AgentRegistry:
             if call and call.status == CallStatus.CANCELLED:
                 logger.info(f"Call {call_id} was cancelled during execution")
                 return None
-
-            # Note: The agent should emit a goal_completed event
-            # If it doesn't, we could add a fallback here
 
             return result
 
@@ -296,19 +278,23 @@ class AgentRegistry:
             elif hasattr(agent, 'callback'):
                 delattr(agent, 'callback')
 
+            # Restore original max_iterations if we changed it
+            if original_max is not None:
+                agent.max_iterations = original_max
+
             # Clean up execution tracking
             self._call_agents.pop(call_id, None)
             # Remove from running tasks
             self._running_tasks.pop(call_id, None)
 
-    def start_agent_execution(self, agent_name: str, call_id: UUID, input_data: dict[str, Any]) -> asyncio.Task:
+    def start_agent_execution(self, agent_name: str, call_id: UUID, input_data: dict[str, Any], max_iterations: int | None = None) -> asyncio.Task:
         """
         Start agent execution in a background task.
 
         Returns the task handle for potential cancellation.
         """
         task = asyncio.create_task(
-            self.execute_agent(agent_name, call_id, input_data)
+            self.execute_agent(agent_name, call_id, input_data, max_iterations)
         )
         self._running_tasks[call_id] = task
         return task
@@ -346,8 +332,6 @@ class AgentRegistry:
                     await self._handle_action_executed(call_id, data)
                 elif event_type == "goal_completed":
                     await self._handle_goal_completed(call_id, data)
-                elif event_type.startswith("workflow_"):
-                    await self._handle_workflow_event(call_id, event_type, data)
                 elif event_type == "error":
                     await self._handle_error_event(call_id, data)
                 else:

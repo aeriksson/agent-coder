@@ -22,6 +22,7 @@ class CallSpec(BaseModel):
     """Specification for creating a new agent call."""
     agent_name: str | None = None  # Set by the API endpoint
     input_data: dict[str, Any]
+    max_iterations: int | None = Field(default=None, ge=1, le=100, description="Maximum reasoning iterations (1-100)")
     metadata: dict[str, Any] | None = None
 
 

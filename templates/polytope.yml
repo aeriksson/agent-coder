@@ -1,23 +1,26 @@
 tools:
-  create-agent-api:
+  create-agent-server:
     info: |
-      Creates a complete Python agent API with FastAPI server already running.
-      Always use this when creating a new agent project - DO NOT create additional APIs.
-      This automatically starts a dev container with the API service running on a port.
-      The project uses uv+FastAPI with Opper Agent SDK integration.
-      Includes agent management endpoints, WebSocket monitoring, and testing tools.
-      The environment is set to dev with hot reload enabled.
+      Creates and starts a multi-agent FastAPI server that hosts all your agents in one service.
+      This tool both creates the server code AND automatically starts it running.
+
+      Usage: Create the server once, then add multiple agents to it:
+      - First: __polytope__run(module: create-agent-server) - creates and starts the server
+      - Then: __polytope__run(module: agent-server-add-agent, args: {name: "your-agent"})
+
+      The server runs with hot reload and includes WebSocket monitoring, test utilities, and API endpoints.
+      Default path is "agent-server" - typically no need to change this.
     await: [scaffold-agent-service]
     params:
       - id: path
         info: Path relative to the project root where the service should be created.
-        type: [default, str, api]
+        type: [default, str, agent-server]
     run:
       - id: scaffold-agent-service
         tool: polytope/scaffold
         args:
           actions:
-            - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: python-agent-api}
+            - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: agent-server}
               path: pt.param path
               add-to-tools: [{tool: default, call: api}]
             - template: https://github.com/opper-ai/opperai-agent-sdk.git

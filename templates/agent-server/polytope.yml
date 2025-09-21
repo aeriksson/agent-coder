@@ -58,7 +58,7 @@ tools:
           create: always
 
   {{ project-name }}-test:
-    info: Run agent tests and evaluations
+    info: Run unit tests for the agent server
     run:
       - tool: {{ project-name }}
         args:
@@ -67,14 +67,31 @@ tools:
           cmd: ./bin/test
           create: always
 
-  {{ project-name }}-eval:
-    info: Run agent evaluations on test cases
+  {{ project-name }}-call-agent:
+    info: |
+      Call an agent with inputs via the API.
+      The quickest way to test your agents!
+
+      The agent server must be running (it starts automatically with create-agent-server).
+    params:
+      - id: agent
+        info: Name of the agent to call (e.g., 'research-assistant')
+        type: str
+      - id: inputs
+        info: Input data for the agent as JSON (must match the agent's input schema)
+        type: any
+      - id: max_iterations
+        info: Maximum reasoning iterations (1-100)
+        type: [default, int, 10]
+      - id: timeout
+        info: Timeout in seconds
+        type: [default, int, 60]
     run:
       - tool: {{ project-name }}
         args:
-          id: {{ project-name }}-eval
+          id: {{ project-name }}-call-agent
           restart-policy: never
-          cmd: ./bin/eval
+          cmd: '#pt-js `./bin/uv-run test_agent --agent ${params.agent} --input ''${JSON.stringify(params.inputs)}'' --max-iterations ${params.max_iterations} --timeout ${params.timeout}`'
           create: always
 
   {{ project-name }}-format:
@@ -108,11 +125,11 @@ tools:
         args:
           id: {{ project-name }}-add-script
           restart-policy: never
-          cmd: '#pt-js "./bin/add-script " + params.script'
+          cmd: ./bin/add-script {pt.param script}
           create: always
 
   {{ project-name }}-add-agent:
-    info: Create a new agent with scaffolding. Generates agent file, tools/workflow, and registration instructions.
+    info: Create a new agent with scaffolding. Generates agent file with example tools and automatic registration.
     params:
       - id: name
         info: Agent name in kebab-case (e.g., 'research-assistant', 'code-analyzer')
@@ -120,15 +137,12 @@ tools:
       - id: description
         info: Description of what the agent does
         type: [default, str, "An AI agent that helps with various tasks"]
-      - id: mode
-        info: Agent mode - 'tools' for dynamic tool selection, 'flow' for structured workflows
-        type: [default, [enum, tools, flow], tools]
     run:
       - tool: {{ project-name }}
         args:
           id: {{ project-name }}-add-agent
           restart-policy: never
-          cmd: '#pt-js "./bin/add-agent " + params.name + " \"" + params.description + "\" " + params.mode'
+          cmd: ./bin/add-agent {pt.param name} "{pt.param description}"
           create: always
 
   {{ project-name }}-run-script:
@@ -145,5 +159,5 @@ tools:
         args:
           id: {{ project-name }}-run-script
           restart-policy: never
-          cmd: '#pt-js "./bin/uv-run " + params.script + " " + params.args'
+          cmd: ./bin/uv-run {pt.param script} {pt.param args}
           create: always

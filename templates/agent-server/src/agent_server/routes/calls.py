@@ -10,11 +10,86 @@ This module handles call lifecycle operations:
 
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
-from ..models.calls import CallSummary, CallStatus
+from ..models.calls import CallSummary, CallStatus, CallListRequest, CallListResponse
+from ..utils.dynamic_models import create_dynamic_call_spec
+from ..agents import AGENT_DEFINITIONS
 from ..utils import log
+
+# Generate the dynamic model from registered agents
+DynamicCallSpec = create_dynamic_call_spec(AGENT_DEFINITIONS)
 
 router = APIRouter(tags=["calls"])
 logger = log.get_logger(__name__)
+
+
+@router.post("/agents/{agent_name}/calls", response_model=CallSummary)
+async def create_agent_call(agent_name: str, spec: DynamicCallSpec, request: Request):
+    """
+    Create a new agent call and return immediately.
+
+    The agent execution happens asynchronously in the background.
+
+    Args:
+        agent_name: Name of the agent to execute
+        spec: Call specification with input data
+
+    Returns:
+        Call summary with tracking ID
+
+    Raises:
+        HTTPException: If agent not found
+    """
+    # Validate agent exists
+    agent = request.app.state.agent_registry.get_agent(agent_name)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+    spec.agent_name = agent_name
+    call = await request.app.state.call_repository.create_call(spec)
+
+    # Start agent execution in background with cancellation support
+    request.app.state.agent_registry.start_agent_execution(
+        agent_name, call.id, spec.input_data, spec.max_iterations
+    )
+
+    return call
+
+
+@router.get("/agents/{agent_name}/calls", response_model=CallListResponse)
+async def list_agent_calls(
+    agent_name: str,
+    request: Request,
+    status: CallStatus | None = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    List calls for a specific agent.
+
+    Args:
+        agent_name: Name of the agent
+        status: Optional filter by call status
+        limit: Maximum number of results
+        offset: Pagination offset
+
+    Returns:
+        List of calls for the agent
+
+    Raises:
+        HTTPException: If agent not found
+    """
+    # Validate agent exists
+    agent = request.app.state.agent_registry.get_agent(agent_name)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+
+    request_params = CallListRequest(
+        agent_name=agent_name,
+        status=status,
+        limit=limit,
+        offset=offset
+    )
+    return await request.app.state.call_repository.list_calls(request_params)
 
 
 @router.get("/calls/{call_id}", response_model=CallSummary)
@@ -104,34 +179,3 @@ async def delete_call(call_id: UUID, request: Request):
     return {"success": True, "message": "Call deletion not yet implemented"}
 
 
-@router.get("/calls/{call_id}/events")
-async def get_call_events(call_id: UUID, request: Request):
-    """
-    Get all events for a call.
-
-    Args:
-        call_id: Unique identifier of the call
-
-    Returns:
-        List of all events for the call
-
-    Raises:
-        HTTPException: If call not found
-    """
-    logger.info(f"GET /calls/{call_id}/events request received")
-
-    if not await request.app.state.call_repository.call_exists(call_id):
-        logger.warning(f"Call {call_id} not found")
-        raise HTTPException(status_code=404, detail=f"Call '{call_id}' not found")
-
-    events = await request.app.state.call_repository.get_call_events(call_id)
-    logger.info(f"Returning {len(events)} events for call {call_id}")
-
-    # Log event types for debugging
-    event_types = {}
-    for event in events:
-        event_type = event.event_type if hasattr(event, 'event_type') else type(event).__name__
-        event_types[event_type] = event_types.get(event_type, 0) + 1
-    logger.debug(f"Event type breakdown: {event_types}")
-
-    return {"events": events}

@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+# Create a new agent with basic scaffolding
+
+. "$(dirname "$0")/init"
+
+# Function to echo (can be silenced)
+echoh() {
+    if [ "${SILENT_OUTPUT:-}" != "true" ]; then
+        echo "$@"
+    fi
+}
+
+# Function to convert kebab-case to snake_case
+kebab_to_snake() {
+    echo "$1" | sed 's/-/_/g'
+}
+
+# Function to convert kebab-case to PascalCase
+kebab_to_pascal() {
+    echo "$1" | sed 's/-/ /g' | sed 's/\b\w/\U&/g' | sed 's/ //g'
+}
+
+# Function to create agent file
+create_agent_file() {
+    local agent_name="$1"
+    local agent_description="$2"
+    local snake_name=$(kebab_to_snake "$agent_name")
+    local pascal_name=$(kebab_to_pascal "$agent_name")
+    local agent_file="src/agent_server/agents/${snake_name}_agent.py"
+
+    if [ -f "$agent_file" ]; then
+        echoh "📄 Agent file already exists: $agent_file"
+        return 1
+    fi
+
+    # Ensure directory exists
+    mkdir -p "$(dirname "$agent_file")"
+
+    cat > "$agent_file" << EOF
+"""
+${pascal_name} agent using Opper SDK.
+
+${agent_description}
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional
+from opper_agent import Agent, tool
+from agent_server.models.agent_definition import AgentDefinition
+
+
+# Define the input schema for this agent
+class ${pascal_name}Input(BaseModel):
+    """Input schema for ${agent_name} agent."""
+    goal: str = Field(
+        description="What you want the agent to accomplish"
+    )
+    # Add more fields as needed for your specific agent
+    # context: Optional[str] = Field(default=None, description="Additional context")
+    # max_results: Optional[int] = Field(default=10, description="Maximum number of results")
+
+
+# Define the output schema for this agent
+class ${pascal_name}Output(BaseModel):
+    """Output schema for ${agent_name} agent."""
+    result: str = Field(description="The agent's response")
+    # Add more fields as needed
+    # success: bool = Field(default=True, description="Whether the operation succeeded")
+    # metadata: Optional[dict] = Field(default=None, description="Additional metadata")
+
+
+# IMPORTANT: Tools decorated with @tool are called by the Opper agent, not by your code!
+# - Each tool should do ONE specific task
+# - Tools CANNOT call other @tool decorated functions directly
+# - The agent handles orchestration - it decides which tools to call and in what order
+# - If you need a high-level orchestration function, that's what the agent itself does!
+
+@tool
+def example_tool(input_text: str) -> str:
+    """
+    An example tool for the ${agent_name} agent.
+
+    Args:
+        input_text: Text to process
+
+    Returns:
+        Processed result
+    """
+    # Add your tool logic here
+    # This should be self-contained - don't call other @tool functions
+    return f"Processed: {input_text}"
+
+
+# Add more tools as needed for your agent
+@tool
+def another_tool(value: int) -> str:
+    """
+    Another example tool.
+
+    Args:
+        value: A number to process
+
+    Returns:
+        Result of processing
+    """
+    # Add your tool logic here
+    return f"Result: {value * 2}"
+
+
+def create_${snake_name}_agent():
+    """
+    Create the ${agent_name} agent instance.
+
+    ${agent_description}
+    """
+    return Agent(
+        name="${agent_name}",
+        description="${agent_description}",
+        tools=[example_tool, another_tool],
+        instructions="""You are a helpful AI assistant. Describe what this agent does and how to use it.""",  # Optional: custom instructions for the agent
+        verbose=True,  # Set to False to reduce output
+        input_schema=${pascal_name}Input,  # Validates inputs
+        output_schema=${pascal_name}Output,  # Structures output
+    )
+
+
+# Agent definition with metadata and schemas
+${snake_name.upper()}_AGENT = AgentDefinition(
+    name="${agent_name}",
+    description="${agent_description}",
+    input_schema=${pascal_name}Input,
+    output_schema=${pascal_name}Output,
+    factory=create_${snake_name}_agent
+)
+EOF
+
+    echoh "✅ Created agent file: $agent_file"
+
+    # Create test script
+    local test_file="src/scripts/test_${snake_name}.py"
+    cat > "$test_file" << EOF
+#!/usr/bin/env python
+"""
+Smoke test for ${agent_name} agent.
+
+This is a basic smoke test to verify the agent runs without errors.
+You should customize the test inputs to match what your agent actually does.
+"""
+
+import json
+from agent_server.test_utils import AgentTestClient, print_header, print_success, print_error, print_info
+
+
+# DEFAULT TEST CONFIGURATION - CUSTOMIZE THESE!
+AGENT_NAME = "${agent_name}"
+DEFAULT_MAX_ITERATIONS = 5  # Keep low for smoke tests
+
+# Default test input - must match your agent's input schema!
+# Since your agent expects ${pascal_name}Input with a 'goal' field,
+# provide that here:
+DEFAULT_TEST_INPUT = {
+    "goal": "Hello, please respond with a simple greeting to verify you are working."
+    # Add other fields if your ${pascal_name}Input schema requires them
+}
+
+
+def test_${snake_name}():
+    """Smoke test for ${agent_name} agent."""
+
+    print_header(f"Smoke Test: {AGENT_NAME} Agent")
+    print_info("${agent_description}")
+    print_info(f"Max iterations: {DEFAULT_MAX_ITERATIONS}")
+
+    # Initialize client (set spawn_server=True to auto-start server)
+    with AgentTestClient(spawn_server=False) as client:
+
+        # Run smoke test
+        print_info(f"Testing with input: {json.dumps(DEFAULT_TEST_INPUT)[:100]}...")
+
+        result = client.call_agent(
+            agent_name=AGENT_NAME,
+            input_data=DEFAULT_TEST_INPUT,
+            max_iterations=DEFAULT_MAX_ITERATIONS
+        )
+
+        if result["status"] == "completed":
+            print_success("✅ Agent executed successfully!")
+            return True
+        else:
+            print_error(f"❌ Agent failed: {result.get('error', 'Unknown error')}")
+            return False
+
+        return True
+
+
+if __name__ == "__main__":
+    import sys
+    success = test_${snake_name}()
+    sys.exit(0 if success else 1)
+EOF
+    echoh "📝 Created test script: $test_file"
+
+    return 0
+}
+
+# Function to update agents/__init__.py
+update_agents_init() {
+    local agent_name="$1"
+    local snake_name=$(kebab_to_snake "$agent_name")
+    local upper_snake=$(echo "$snake_name" | tr '[:lower:]' '[:upper:]')
+    local init_file="src/agent_server/agents/__init__.py"
+
+    # Check if already registered
+    if grep -q "${upper_snake}_AGENT" "$init_file" 2>/dev/null; then
+        echoh "✓ Agent already registered in $init_file"
+        return 0
+    fi
+
+    # Add import statement if not present
+    import_line="from .${snake_name}_agent import ${upper_snake}_AGENT"
+    if ! grep -q "$import_line" "$init_file" 2>/dev/null; then
+        # Add import after the AgentDefinition import
+        sed -i.bak '/from \.\.models\.agent_definition import AgentDefinition/a\
+'"$import_line" "$init_file"
+        rm -f "${init_file}.bak"
+    fi
+
+    # Add to AGENT_DEFINITIONS list
+    agent_entry="    ${upper_snake}_AGENT,"
+
+    # Find the AGENT_DEFINITIONS list and add our entry
+    if grep -q "AGENT_DEFINITIONS" "$init_file"; then
+        # Check if list is empty (only has comment)
+        if grep -q "# Agents will be added here" "$init_file"; then
+            # Replace the comment with our entry
+            sed -i.bak "s|    # Agents will be added here by the add-agent tool|$agent_entry|" "$init_file"
+        else
+            # Add after a comment line inside the list
+            sed -i.bak "/^    # Example:/a\\
+$agent_entry" "$init_file"
+        fi
+        rm -f "${init_file}.bak"
+        echoh "📝 Registered agent in $init_file"
+    else
+        echoh "⚠️  Could not find AGENT_DEFINITIONS list in $init_file"
+        echoh "   Please manually add: $agent_entry"
+    fi
+}
+
+# Main script
+main() {
+    # Parse arguments
+    local agent_name=""
+    local agent_description=""
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --name)
+                agent_name="$2"
+                shift 2
+                ;;
+            --description)
+                agent_description="$2"
+                shift 2
+                ;;
+            *)
+                # Positional argument for agent name
+                if [ -z "$agent_name" ]; then
+                    agent_name="$1"
+                elif [ -z "$agent_description" ]; then
+                    agent_description="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    # Validate required arguments
+    if [ -z "$agent_name" ]; then
+        echo "❌ Error: Agent name is required"
+        echo ""
+        echo "Usage: $0 <agent-name> [description]"
+        echo "   or: $0 --name <agent-name> --description <description>"
+        echo ""
+        echo "Example:"
+        echo "  $0 research-assistant \"An agent that helps with research tasks\""
+        exit 1
+    fi
+
+    # Validate agent name format (kebab-case)
+    if ! echo "$agent_name" | grep -qE '^[a-z][a-z0-9-]*[a-z0-9]$'; then
+        echo "❌ Error: Agent name must be kebab-case (lowercase letters, numbers, and hyphens)"
+        echo "   Example: research-assistant, code-reviewer, data-analyzer"
+        exit 1
+    fi
+
+    # Set default description if not provided
+    if [ -z "$agent_description" ]; then
+        agent_description="An AI agent that processes requests"
+    fi
+
+    echoh "🤖 Creating agent: $agent_name"
+    echoh "   Description: $agent_description"
+    echoh ""
+
+    # Convert agent name to snake_case for file paths
+    local snake_name=$(kebab_to_snake "$agent_name")
+
+    # Create the agent file
+    if create_agent_file "$agent_name" "$agent_description"; then
+        # Update __init__.py
+        update_agents_init "$agent_name"
+
+        echoh ""
+        echoh "🎉 Agent created successfully!"
+        echoh ""
+        echoh "Next steps:"
+        echoh "1. Edit the agent file to implement your tools: src/agent_server/agents/${snake_name}_agent.py"
+        echoh ""
+        echoh "2. CUSTOMIZE the test script with real test inputs: src/scripts/test_${snake_name}.py"
+        echoh "   - Update DEFAULT_TEST_GOAL to test your agent's actual functionality"
+        echoh "   - Set DEFAULT_MAX_ITERATIONS (keep it low, e.g. 5-10 for smoke tests)"
+        echoh "   - Add any DEFAULT_INPUT_DATA your agent requires"
+        echoh ""
+        echoh "3. Check server logs to ensure your agent loads without errors:"
+        echoh "   __polytope__logs(container: {{ project-name }}, tail: 100)"
+        echoh ""
+        echoh "4. Run the smoke test to verify your agent works:"
+        echoh "   python -m scripts.test_${snake_name}"
+        echoh ""
+        echoh "   Or test via Polytope tool:"
+        echoh "   __polytope__run(module: {{ project-name }}-call-agent, args: {agent: \"$agent_name\", inputs: {goal: \"Your test\"}})"
+        echoh ""
+        echoh "   Or use the universal test script:"
+        echoh "   python -m scripts.test_agent --agent $agent_name --input '{\"goal\": \"Your test\"}' --max-iterations 5"
+    else
+        exit 1
+    fi
+}
+
+# Run main function
+main "$@"

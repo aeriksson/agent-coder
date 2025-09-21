@@ -47,7 +47,6 @@ def create_app() -> FastAPI:
     return app
 
 
-# Create app instance
 app = create_app()
 
 
@@ -64,7 +63,7 @@ def main() -> None:
     logger.info(f"Starting Opper Agent API on {http_conf.host}:{http_conf.port}")
 
     uvicorn.run(
-        "backend.main:app",
+        "agent_server.main:app",
         host=http_conf.host,
         port=http_conf.port,
         reload=http_conf.autoreload,
