@@ -16,7 +16,6 @@ export function AgentCard({ agent, onExecute }: AgentCardProps) {
     <div className="bg-card rounded-lg border p-6">
       <AgentHeader
         name={agent.name}
-        mode={agent.mode}
         isExpanded={isExpanded}
         onToggleExpand={() => setIsExpanded(!isExpanded)}
         onExecute={onExecute}
@@ -35,22 +34,18 @@ export function AgentCard({ agent, onExecute }: AgentCardProps) {
 
 interface AgentHeaderProps {
   name: string;
-  mode: string;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onExecute: () => void;
 }
 
-function AgentHeader({ name, mode, isExpanded, onToggleExpand, onExecute }: AgentHeaderProps) {
+function AgentHeader({ name, isExpanded, onToggleExpand, onExecute }: AgentHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center space-x-4">
         <Bot className="w-10 h-10 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">{name}</h1>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-            <span className="capitalize">{mode} mode</span>
-          </div>
         </div>
       </div>
 
@@ -90,7 +85,6 @@ function AgentExpandedDetails({ agent }: { agent: Agent }) {
       <InputSchemaDisplay schema={agent.input_schema} />
 
       <div className="text-xs text-muted-foreground pt-2">
-        <div>Mode: {agent.mode}</div>
         {agent.version && <div>Version: {agent.version}</div>}
       </div>
     </div>

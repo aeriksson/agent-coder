@@ -17,50 +17,32 @@ def get_agent_schema(agent: Any) -> dict[str, Any]:
         agent: The agent instance to extract schemas from
 
     Returns:
-        Dictionary containing input_schema, output_schema (as Pydantic models or None), and mode
+        Dictionary containing input_schema, output_schema (as Pydantic models or None)
     """
     from pydantic import BaseModel, Field, create_model
 
-    input_model = getattr(agent, 'input_schema', None)
-    output_model = getattr(agent, 'output_schema', None)
+    input_model = getattr(agent, "input_schema", None)
+    output_model = getattr(agent, "output_schema", None)
     if not input_model:
         # Default input model for agents without schema
         input_model = create_model(
-            'DefaultAgentInput',
-            goal=(str, Field(description="What you want the agent to accomplish"))
+            "DefaultAgentInput",
+            goal=(str, Field(description="What you want the agent to accomplish")),
         )
 
     if not output_model:
         # Default output is just a string - create a simple model
         output_model = create_model(
-            'DefaultAgentOutput',
-            result=(str, Field(description="The agent's response"))
+            "DefaultAgentOutput",
+            result=(str, Field(description="The agent's response")),
         )
 
     return {
         "input_model": input_model,
         "output_model": output_model,
         "input_schema": input_model.model_json_schema() if input_model else None,
-        "output_schema": output_model.model_json_schema() if output_model else None
-        "mode": agent.mode if hasattr(agent, 'mode') else "tools"
+        "output_schema": output_model.model_json_schema() if output_model else None,
     }
-    except Exception as e:
-        logger.warning(f"Failed to extract schema for agent: {e}")
-        # Fallback for any errors
-        return {
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "goal": {
-                        "type": "string",
-                        "description": "Natural language description of what you want the agent to do"
-                    }
-                },
-                "required": ["goal"]
-            },
-            "output_schema": {"type": "string"},
-            "mode": "unknown"
-        }
 
 
 async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
@@ -80,16 +62,21 @@ async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
 
         # Try to identify server-related tasks to skip them
         try:
-            coro_name = task.get_coro().__name__ if hasattr(task.get_coro(), '__name__') else ''
+            coro_name = (
+                task.get_coro().__name__ if hasattr(task.get_coro(), "__name__") else ""
+            )
 
             # Skip FastAPI/Uvicorn server tasks
-            if any(skip in coro_name.lower() for skip in ['serve', '_serve', 'shutdown', 'lifespan']):
+            if any(
+                skip in coro_name.lower()
+                for skip in ["serve", "_serve", "shutdown", "lifespan"]
+            ):
                 logger.debug(f"Skipping server task: {coro_name}")
                 continue
-            if 'uvicorn' in str(task).lower() or 'fastapi' in str(task).lower():
+            if "uvicorn" in str(task).lower() or "fastapi" in str(task).lower():
                 logger.debug(f"Skipping framework task: {task}")
                 continue
-        except:
+        except Exception:
             pass
 
         all_tasks.append(task)
@@ -102,8 +89,14 @@ async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
     task_info = []
     for task in all_tasks:
         try:
-            coro_name = task.get_coro().__name__ if hasattr(task.get_coro(), '__name__') else str(task.get_coro())
-            task_info.append(f"{coro_name}({task.get_name() if hasattr(task, 'get_name') else 'unnamed'})")
+            coro_name = (
+                task.get_coro().__name__
+                if hasattr(task.get_coro(), "__name__")
+                else str(task.get_coro())
+            )
+            task_info.append(
+                f"{coro_name}({task.get_name() if hasattr(task, 'get_name') else 'unnamed'})"
+            )
         except:
             task_info.append(f"task-{id(task)}")
 
@@ -118,8 +111,7 @@ async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
     # Phase 2: Wait for graceful completion
     try:
         await asyncio.wait_for(
-            asyncio.gather(*all_tasks, return_exceptions=True),
-            timeout=grace_period
+            asyncio.gather(*all_tasks, return_exceptions=True), timeout=grace_period
         )
         logger.info("All background tasks completed gracefully")
     except asyncio.TimeoutError:
@@ -130,9 +122,15 @@ async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
             remaining_info = []
             for task in remaining:
                 try:
-                    coro_name = task.get_coro().__name__ if hasattr(task.get_coro(), '__name__') else str(task.get_coro())
-                    remaining_info.append(f"{coro_name}({task.get_name() if hasattr(task, 'get_name') else 'unnamed'})")
-                except:
+                    coro_name = (
+                        task.get_coro().__name__
+                        if hasattr(task.get_coro(), "__name__")
+                        else str(task.get_coro())
+                    )
+                    remaining_info.append(
+                        f"{coro_name}({task.get_name() if hasattr(task, 'get_name') else 'unnamed'})"
+                    )
+                except Exception:
                     remaining_info.append(f"task-{id(task)}")
 
             logger.warning(f"Killing {len(remaining)} stubborn tasks: {remaining_info}")
@@ -143,8 +141,7 @@ async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
             # Wait a bit more for force cancellation
             try:
                 await asyncio.wait_for(
-                    asyncio.gather(*remaining, return_exceptions=True),
-                    timeout=1.0
+                    asyncio.gather(*remaining, return_exceptions=True), timeout=1.0
                 )
                 logger.info("Force cancellation completed")
             except asyncio.TimeoutError:
@@ -154,10 +151,20 @@ async def cleanup_all_background_tasks(grace_period: float = 3.0) -> None:
                     alive_info = []
                     for task in still_alive:
                         try:
-                            coro_name = task.get_coro().__name__ if hasattr(task.get_coro(), '__name__') else str(task.get_coro())
-                            alive_info.append(f"{coro_name}({task.get_name() if hasattr(task, 'get_name') else 'unnamed'})")
-                        except:
+                            coro_name = (
+                                task.get_coro().__name__
+                                if hasattr(task.get_coro(), "__name__")
+                                else str(task.get_coro())
+                            )
+                            alive_info.append(
+                                f"{coro_name}({task.get_name() if hasattr(task, 'get_name') else 'unnamed'})"
+                            )
+                        except Exception:
                             alive_info.append(f"task-{id(task)}")
 
-                    logger.error(f"The following {len(still_alive)} tasks refused to die: {alive_info}")
-                    logger.error("Proceeding with shutdown anyway - some tasks may be stuck in network I/O")
+                    logger.error(
+                        f"The following {len(still_alive)} tasks refused to die: {alive_info}"
+                    )
+                    logger.error(
+                        "Proceeding with shutdown anyway - some tasks may be stuck in network I/O"
+                    )

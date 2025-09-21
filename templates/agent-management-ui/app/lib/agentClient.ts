@@ -9,7 +9,6 @@ export type CallStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cance
 export interface Agent {
   name: string;
   description: string;
-  mode: 'tools' | 'flow';
   max_iterations: number;
   verbose: boolean;
   tools: string[];

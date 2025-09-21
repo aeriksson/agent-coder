@@ -15,6 +15,7 @@ from rich.syntax import Syntax
 
 console = Console()
 
+
 class AgentTestClient:
     """Client for testing agents via the API."""
 
@@ -28,7 +29,9 @@ class AgentTestClient:
         """
         self.spawn_server = spawn_server
         if base_url is None:
-            self.base_url = "http://localhost:8000" if spawn_server else "http://api:3030"
+            self.base_url = (
+                "http://localhost:8000" if spawn_server else "http://api:3030"
+            )
         else:
             self.base_url = base_url.rstrip("/")
         self.server_process = None
@@ -56,7 +59,7 @@ class AgentTestClient:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,  # Combine stderr into stdout
             universal_newlines=True,
-            bufsize=1  # Line buffered
+            bufsize=1,  # Line buffered
         )
 
         # Queue to capture early errors
@@ -71,7 +74,16 @@ class AgentTestClient:
                 # Check for common startup failures
                 if not startup_complete.is_set():
                     lower_line = line.lower()
-                    if any(err in lower_line for err in ["error", "exception", "traceback", "failed", "cannot import"]):
+                    if any(
+                        err in lower_line
+                        for err in [
+                            "error",
+                            "exception",
+                            "traceback",
+                            "failed",
+                            "cannot import",
+                        ]
+                    ):
                         error_queue.put(line.strip())
 
         log_thread = threading.Thread(target=echo_logs, daemon=True)
@@ -88,7 +100,9 @@ class AgentTestClient:
                 errors = []
                 while not error_queue.empty():
                     errors.append(error_queue.get_nowait())
-                error_msg = "\n".join(errors) if errors else "Process exited unexpectedly"
+                error_msg = (
+                    "\n".join(errors) if errors else "Process exited unexpectedly"
+                )
                 raise RuntimeError(f"Server failed to start:\n{error_msg}")
 
             try:
@@ -115,7 +129,9 @@ class AgentTestClient:
                 error_msg = "\n".join(errors) if errors else "Process exited"
                 raise RuntimeError(f"Server process died during startup:\n{error_msg}")
             else:
-                raise RuntimeError(f"Server failed to become ready within 10 seconds. Last error: {last_error}")
+                raise RuntimeError(
+                    f"Server failed to become ready within 10 seconds. Last error: {last_error}"
+                )
 
     def __enter__(self):
         return self
@@ -143,7 +159,7 @@ class AgentTestClient:
         input_data: dict,
         max_iterations: int | None = None,
         stream_events: bool = True,
-        timeout: float = 120.0
+        timeout: float = 120.0,
     ) -> dict:
         """
         Call an agent and return results.
@@ -165,7 +181,9 @@ class AgentTestClient:
 
         # Display request
         console.print(f"\n[bold blue]📤 Calling agent: {agent_name}[/bold blue]")
-        console.print(Panel(json.dumps(input_data, indent=2), title="Input", border_style="blue"))
+        console.print(
+            Panel(json.dumps(input_data, indent=2), title="Input", border_style="blue")
+        )
 
         if max_iterations:
             console.print(f"[yellow]🔄 Max iterations: {max_iterations}[/yellow]")
@@ -175,8 +193,7 @@ class AgentTestClient:
         start_time = time.time()
 
         response = self.client.post(
-            f"{self.base_url}/api/v1/agents/{agent_name}/calls",
-            json=call_spec
+            f"{self.base_url}/api/v1/agents/{agent_name}/calls", json=call_spec
         )
         response.raise_for_status()
         call_data = response.json()
@@ -216,13 +233,11 @@ class AgentTestClient:
 
         # Extract host from base_url for WebSocket
         import re
-        host = re.sub(r'^https?://', '', self.base_url)
-        ws_protocol = 'wss' if self.base_url.startswith('https') else 'ws'
+
+        host = re.sub(r"^https?://", "", self.base_url)
+        ws_protocol = "wss" if self.base_url.startswith("https") else "ws"
         ws_url = f"{ws_protocol}://{host}/api/v1/calls/{call_id}/events/stream"
-        ws = websocket.WebSocketApp(ws_url,
-            on_message=on_message,
-            on_error=on_error
-        )
+        ws = websocket.WebSocketApp(ws_url, on_message=on_message, on_error=on_error)
 
         # Run WebSocket in thread
         wst = threading.Thread(target=ws.run_forever)
@@ -234,16 +249,22 @@ class AgentTestClient:
         event_type = event.get("event_type", event.get("type", "unknown"))
 
         if event_type == "thought":
-            console.print(f"[cyan]💭 Thought:[/cyan] {event.get('reasoning', '')[:200]}...")
+            console.print(
+                f"[cyan]💭 Thought:[/cyan] {event.get('reasoning', '')[:200]}..."
+            )
         elif event_type == "action":
             tool_name = event.get("tool_name", "unknown")
             console.print(f"[green]🔧 Tool: {tool_name}[/green]")
             if event.get("parameters"):
-                console.print(f"   [dim]Params: {json.dumps(event['parameters'])[:100]}[/dim]")
+                console.print(
+                    f"   [dim]Params: {json.dumps(event['parameters'])[:100]}[/dim]"
+                )
         elif event_type == "result":
             console.print("[bold green]✓ Completed[/bold green]")
         elif event_type == "error":
-            console.print(f"[red]❌ Error: {event.get('error_message', 'Unknown error')}[/red]")
+            console.print(
+                f"[red]❌ Error: {event.get('error_message', 'Unknown error')}[/red]"
+            )
 
     def _wait_for_completion(self, call_id: str, timeout: float = 120.0) -> dict:
         """Wait for a call to complete.
@@ -270,10 +291,12 @@ class AgentTestClient:
             time.sleep(1)
 
         # Timeout - try to cancel and return what we have
-        console.print(f"[yellow]⚠️  Call timeout after {timeout:.1f} seconds, cancelling...[/yellow]")
+        console.print(
+            f"[yellow]⚠️  Call timeout after {timeout:.1f} seconds, cancelling...[/yellow]"
+        )
         try:
             self.client.post(f"{self.base_url}/api/v1/calls/{call_id}/cancel")
-        except:
+        except Exception:
             pass  # Best effort cancellation
 
         # Return the last known state with timeout indicator
@@ -286,7 +309,7 @@ class AgentTestClient:
                 "call_id": call_id,
                 "status": "timeout",
                 "timeout_seconds": timeout,
-                "error": f"Call did not complete within {timeout:.1f} seconds"
+                "error": f"Call did not complete within {timeout:.1f} seconds",
             }
 
     def _display_result(self, result: dict, elapsed_time: float):
@@ -295,15 +318,23 @@ class AgentTestClient:
 
         # Status header
         if status == "completed":
-            console.print(f"\n[bold green]✅ COMPLETED[/bold green] in {elapsed_time:.2f}s")
+            console.print(
+                f"\n[bold green]✅ COMPLETED[/bold green] in {elapsed_time:.2f}s"
+            )
         elif status == "failed":
             console.print(f"\n[bold red]❌ FAILED[/bold red] in {elapsed_time:.2f}s")
         elif status == "timeout":
             timeout_secs = result.get("timeout_seconds", "unknown")
-            console.print(f"\n[bold yellow]⏱️  TIMEOUT[/bold yellow] after {timeout_secs}s (total elapsed: {elapsed_time:.2f}s)")
-            console.print("[yellow]The agent was still running when the timeout was reached.[/yellow]")
+            console.print(
+                f"\n[bold yellow]⏱️  TIMEOUT[/bold yellow] after {timeout_secs}s (total elapsed: {elapsed_time:.2f}s)"
+            )
+            console.print(
+                "[yellow]The agent was still running when the timeout was reached.[/yellow]"
+            )
         else:
-            console.print(f"\n[yellow]⚠️  {status.upper()}[/yellow] in {elapsed_time:.2f}s")
+            console.print(
+                f"\n[yellow]⚠️  {status.upper()}[/yellow] in {elapsed_time:.2f}s"
+            )
 
         # Result content
         if "result" in result:
@@ -328,11 +359,9 @@ class AgentTestClient:
 
         # Error info if failed
         if status == "failed" and "error" in result:
-            console.print(Panel(
-                result["error"],
-                title="Error Details",
-                border_style="red"
-            ))
+            console.print(
+                Panel(result["error"], title="Error Details", border_style="red")
+            )
 
 
 def test_agent(
@@ -341,7 +370,7 @@ def test_agent(
     max_iterations: int | None = None,
     base_url: str = None,
     spawn_server: bool = False,
-    timeout: float = 120.0
+    timeout: float = 120.0,
 ) -> dict:
     """
     Convenience function to test an agent.
@@ -358,7 +387,9 @@ def test_agent(
         Call result
     """
     with AgentTestClient(base_url=base_url, spawn_server=spawn_server) as client:
-        return client.call_agent(agent_name, input_data, max_iterations, timeout=timeout)
+        return client.call_agent(
+            agent_name, input_data, max_iterations, timeout=timeout
+        )
 
 
 def print_header(text: str):

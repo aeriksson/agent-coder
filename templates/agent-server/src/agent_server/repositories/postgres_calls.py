@@ -11,8 +11,17 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.calls import (
-    CallSpec, CallSummary, CallThought, CallAction, CallResult, CallError,
-    CallEvent, CallStatus, CallListRequest, CallListResponse, CallStatusChange
+    CallSpec,
+    CallSummary,
+    CallThought,
+    CallAction,
+    CallResult,
+    CallError,
+    CallEvent,
+    CallStatus,
+    CallListRequest,
+    CallListResponse,
+    CallStatusChange,
 )
 from ..db.models import CallTable, CallEventTable
 from ..clients.postgres import PostgresClient
@@ -31,7 +40,7 @@ class PostgresCallRepository(CallRepository):
             agent_name=spec.agent_name,
             input_data=spec.input_data,
             status=CallStatus.PENDING,
-            metadata=spec.metadata
+            metadata=spec.metadata,
         )
 
         async with self.postgres_client.get_session() as session:
@@ -41,7 +50,7 @@ class PostgresCallRepository(CallRepository):
                 input_data=call.input_data,
                 status=call.status.value,
                 created_at=call.created_at,
-                call_metadata=call.metadata
+                call_metadata=call.metadata,
             )
             session.add(call_row)
             await session.commit()
@@ -70,7 +79,7 @@ class PostgresCallRepository(CallRepository):
                 metadata=call_row.call_metadata,
                 total_thoughts=call_row.total_thoughts,
                 total_actions=call_row.total_actions,
-                execution_time_ms=call_row.execution_time_ms
+                execution_time_ms=call_row.execution_time_ms,
             )
 
     async def register_call_started(self, call_id: UUID) -> None:
@@ -80,7 +89,7 @@ class PostgresCallRepository(CallRepository):
                 .where(CallTable.id == str(call_id))
                 .values(
                     status=CallStatus.RUNNING.value,
-                    started_at=datetime.now(timezone.utc)
+                    started_at=datetime.now(timezone.utc),
                 )
             )
             await session.execute(stmt)
@@ -93,7 +102,7 @@ class PostgresCallRepository(CallRepository):
             # Get current thought count for sequence number
             thought_count_stmt = select(func.count(CallEventTable.id)).where(
                 CallEventTable.call_id == str(call_id),
-                CallEventTable.event_type == "thought"
+                CallEventTable.event_type == "thought",
             )
             result = await session.execute(thought_count_stmt)
             thought.sequence = result.scalar() or 0
@@ -105,7 +114,7 @@ class PostgresCallRepository(CallRepository):
                 event_type="thought",
                 timestamp=thought.timestamp,
                 sequence=thought.sequence,
-                data=thought.model_dump()
+                data=thought.model_dump(),
             )
             session.add(event_row)
 
@@ -125,7 +134,7 @@ class PostgresCallRepository(CallRepository):
             # Get current action count for sequence number
             action_count_stmt = select(func.count(CallEventTable.id)).where(
                 CallEventTable.call_id == str(call_id),
-                CallEventTable.event_type == "action"
+                CallEventTable.event_type == "action",
             )
             result = await session.execute(action_count_stmt)
             action.sequence = result.scalar() or 0
@@ -137,7 +146,7 @@ class PostgresCallRepository(CallRepository):
                 event_type="action",
                 timestamp=action.timestamp,
                 sequence=action.sequence,
-                data=action.model_dump()
+                data=action.model_dump(),
             )
             session.add(event_row)
 
@@ -163,7 +172,9 @@ class PostgresCallRepository(CallRepository):
 
             execution_time_ms = None
             if call_row and call_row.started_at:
-                execution_time_ms = int((completed_at - call_row.started_at).total_seconds() * 1000)
+                execution_time_ms = int(
+                    (completed_at - call_row.started_at).total_seconds() * 1000
+                )
 
             # Update call
             update_stmt = (
@@ -172,7 +183,7 @@ class PostgresCallRepository(CallRepository):
                 .values(
                     status=CallStatus.COMPLETED.value,
                     completed_at=completed_at,
-                    execution_time_ms=execution_time_ms
+                    execution_time_ms=execution_time_ms,
                 )
             )
             await session.execute(update_stmt)
@@ -184,13 +195,15 @@ class PostgresCallRepository(CallRepository):
                 event_type="result",
                 timestamp=result.timestamp,
                 sequence=0,  # Results don't need sequence
-                data=result.model_dump()
+                data=result.model_dump(),
             )
             session.add(event_row)
             await session.commit()
 
         await self._notify_subscribers(call_id, result)
-        await self._emit_status_change(call_id, CallStatus.RUNNING, CallStatus.COMPLETED)
+        await self._emit_status_change(
+            call_id, CallStatus.RUNNING, CallStatus.COMPLETED
+        )
         await self._cleanup_subscribers(call_id)
 
     async def register_call_error(self, call_id: UUID, error: CallError) -> None:
@@ -204,7 +217,9 @@ class PostgresCallRepository(CallRepository):
 
             execution_time_ms = None
             if call_row and call_row.started_at:
-                execution_time_ms = int((completed_at - call_row.started_at).total_seconds() * 1000)
+                execution_time_ms = int(
+                    (completed_at - call_row.started_at).total_seconds() * 1000
+                )
 
             # Update call
             update_stmt = (
@@ -213,7 +228,7 @@ class PostgresCallRepository(CallRepository):
                 .values(
                     status=CallStatus.FAILED.value,
                     completed_at=completed_at,
-                    execution_time_ms=execution_time_ms
+                    execution_time_ms=execution_time_ms,
                 )
             )
             await session.execute(update_stmt)
@@ -225,7 +240,7 @@ class PostgresCallRepository(CallRepository):
                 event_type="error",
                 timestamp=error.timestamp,
                 sequence=0,  # Errors don't need sequence
-                data=error.model_dump()
+                data=error.model_dump(),
             )
             session.add(event_row)
             await session.commit()
@@ -249,7 +264,9 @@ class PostgresCallRepository(CallRepository):
             old_status = CallStatus(call_row.status)
             execution_time_ms = None
             if call_row.started_at:
-                execution_time_ms = int((completed_at - call_row.started_at).total_seconds() * 1000)
+                execution_time_ms = int(
+                    (completed_at - call_row.started_at).total_seconds() * 1000
+                )
 
             # Update call
             update_stmt = (
@@ -258,7 +275,7 @@ class PostgresCallRepository(CallRepository):
                 .values(
                     status=CallStatus.CANCELLED.value,
                     completed_at=completed_at,
-                    execution_time_ms=execution_time_ms
+                    execution_time_ms=execution_time_ms,
                 )
             )
             await session.execute(update_stmt)
@@ -301,16 +318,13 @@ class PostgresCallRepository(CallRepository):
                     metadata=row.call_metadata,
                     total_thoughts=row.total_thoughts,
                     total_actions=row.total_actions,
-                    execution_time_ms=row.execution_time_ms
+                    execution_time_ms=row.execution_time_ms,
                 )
                 for row in call_rows
             ]
 
             return CallListResponse(
-                calls=calls,
-                total=total,
-                offset=request.offset,
-                limit=request.limit
+                calls=calls, total=total, offset=request.offset, limit=request.limit
             )
 
     async def get_call_events(self, call_id: UUID) -> list[CallEvent]:
@@ -338,7 +352,9 @@ class PostgresCallRepository(CallRepository):
                     events.append(CallStatusChange.model_validate(row.data))
 
             # Sort by timestamp, then by iteration for events with same timestamp
-            return sorted(events, key=lambda e: (e.timestamp, getattr(e, 'iteration', 0)))
+            return sorted(
+                events, key=lambda e: (e.timestamp, getattr(e, "iteration", 0))
+            )
 
     async def subscribe_to_call(self, call_id: UUID) -> AsyncIterator[CallEvent]:
         # First, yield all historical events from the database
@@ -348,7 +364,11 @@ class PostgresCallRepository(CallRepository):
 
         # Check if the call is already done
         call = await self.get_call(call_id)
-        if call and call.status in (CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.CANCELLED):
+        if call and call.status in (
+            CallStatus.COMPLETED,
+            CallStatus.FAILED,
+            CallStatus.CANCELLED,
+        ):
             return
 
         # Otherwise, subscribe to future events
@@ -367,7 +387,11 @@ class PostgresCallRepository(CallRepository):
 
                 # Check if call is done after this event
                 call = await self.get_call(call_id)
-                if call and call.status in (CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.CANCELLED):
+                if call and call.status in (
+                    CallStatus.COMPLETED,
+                    CallStatus.FAILED,
+                    CallStatus.CANCELLED,
+                ):
                     break
         finally:
             # Clean up subscription
@@ -401,12 +425,12 @@ class PostgresCallRepository(CallRepository):
                 # Skip slow subscribers
                 pass
 
-    async def _emit_status_change(self, call_id: UUID, old_status: CallStatus, new_status: CallStatus) -> None:
+    async def _emit_status_change(
+        self, call_id: UUID, old_status: CallStatus, new_status: CallStatus
+    ) -> None:
         """Emit a status change event."""
         status_change = CallStatusChange(
-            call_id=call_id,
-            old_status=old_status,
-            new_status=new_status
+            call_id=call_id, old_status=old_status, new_status=new_status
         )
 
         # Store in database
@@ -417,7 +441,7 @@ class PostgresCallRepository(CallRepository):
                 event_type="status_change",
                 timestamp=status_change.timestamp,
                 sequence=0,  # Status changes don't need sequence
-                data=status_change.model_dump()
+                data=status_change.model_dump(),
             )
             session.add(event_row)
             await session.commit()

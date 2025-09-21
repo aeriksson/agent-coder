@@ -6,6 +6,7 @@ and can be re-run for hot reloading. It's designed to be generic and
 extensible for future initialization needs.
 """
 
+import warnings
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlmodel import SQLModel
@@ -14,6 +15,13 @@ from .utils import log
 from .registry import AgentRegistry
 from .agents import AGENT_DEFINITIONS
 from .utils.agent_utils import cleanup_all_background_tasks
+
+# Silence specific Pydantic V2 deprecation warnings from Opper SDK
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*The `dict` method is deprecated; use `model_dump` instead.*",
+)
 
 logger = log.get_logger(__name__)
 
@@ -65,30 +73,17 @@ async def init_database(app: FastAPI) -> None:
 
         # Use PostgreSQL repository
         from .repositories.postgres_calls import PostgresCallRepository
+
         app.state.call_repository = PostgresCallRepository(app.state.postgres_client)
     else:
         # Use in-memory repository
         from .repositories.calls import InMemoryCallRepository
+
         app.state.call_repository = InMemoryCallRepository()
 
-    logger.info(f"Using {'PostgreSQL' if conf.USE_POSTGRES else 'in-memory'} call repository")
-
-
-async def init_cache(app: FastAPI) -> None:
-    """
-    Initialize cache connections if configured.
-
-    Args:
-        app: FastAPI application instance
-    """
-    if conf.USE_REDIS:
-        from .clients.redis import RedisClient
-
-        redis_config = conf.get_redis_conf()
-        app.state.redis_client = RedisClient(redis_config)
-        await app.state.redis_client.initialize()
-        await app.state.redis_client.init_connection()
-        logger.info("Redis client initialized")
+    logger.info(
+        f"Using {'PostgreSQL' if conf.USE_POSTGRES else 'in-memory'} call repository"
+    )
 
 
 async def init_agents(app: FastAPI) -> None:
@@ -116,7 +111,9 @@ async def init_agents(app: FastAPI) -> None:
 
             logger.info(f"Successfully registered {len(AGENT_DEFINITIONS)} agents")
         else:
-            logger.info("No agents configured. Create your first agent with: bin/add-agent <name>")
+            logger.info(
+                "No agents configured. Create your first agent with: bin/add-agent <name>"
+            )
     except Exception as e:
         logger.error(f"Failed to initialize agents: {e}")
         raise
@@ -132,15 +129,11 @@ async def cleanup(app: FastAPI) -> None:
     logger.info("Shutting down agent call system...")
 
     # Clean up PostgreSQL client if enabled
-    if conf.USE_POSTGRES and hasattr(app.state, 'postgres_client'):
+    if conf.USE_POSTGRES and hasattr(app.state, "postgres_client"):
         await app.state.postgres_client.close()
 
-    # Clean up Redis client if enabled
-    if conf.USE_REDIS and hasattr(app.state, 'redis_client'):
-        await app.state.redis_client.close()
-
     # Clean up agent registry event tasks
-    if hasattr(app.state, 'agent_registry'):
+    if hasattr(app.state, "agent_registry"):
         await app.state.agent_registry.cleanup()
 
     # Clean up all remaining background tasks
@@ -157,17 +150,16 @@ async def lifespan(app: FastAPI):
     Args:
         app: FastAPI application instance
     """
-    logger.info("Starting Opper Agent API...")
+    logger.info("Starting Agent Server...")
 
     # Run generic initialization
     await init()
 
     # Initialize components
     await init_database(app)
-    await init_cache(app)
     await init_agents(app)
 
-    logger.info("Opper Agent API ready")
+    logger.info("Agent Server ready")
 
     yield
 

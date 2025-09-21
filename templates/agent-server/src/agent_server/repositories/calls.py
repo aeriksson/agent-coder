@@ -9,8 +9,17 @@ from uuid import UUID
 from datetime import datetime, timezone
 
 from ..models.calls import (
-    CallSpec, CallSummary, CallThought, CallAction, CallResult, CallError,
-    CallEvent, CallStatus, CallListRequest, CallListResponse, WSError
+    CallSpec,
+    CallSummary,
+    CallThought,
+    CallAction,
+    CallResult,
+    CallError,
+    CallEvent,
+    CallStatus,
+    CallListRequest,
+    CallListResponse,
+    WSError,
 )
 
 
@@ -94,9 +103,10 @@ class InMemoryCallRepository(CallRepository):
     async def create_call(self, spec: CallSpec) -> CallSummary:
         call = CallSummary(
             agent_name=spec.agent_name,
-            input_data=spec.input_data,
+            input_data=spec.input_data.model_dump()
+            if hasattr(spec.input_data, "model_dump")
+            else spec.input_data,
             status=CallStatus.PENDING,
-            metadata=spec.metadata
         )
         self._calls[call.id] = call
         self._events[call.id] = []
@@ -110,10 +120,13 @@ class InMemoryCallRepository(CallRepository):
         if call := self._calls.get(call_id):
             call.status = CallStatus.RUNNING
             call.started_at = datetime.now(timezone.utc)
-            await self._emit_status_change(call_id, CallStatus.PENDING, CallStatus.RUNNING)
+            await self._emit_status_change(
+                call_id, CallStatus.PENDING, CallStatus.RUNNING
+            )
 
     async def append_call_thought(self, call_id: UUID, thought: CallThought) -> None:
         from ..utils import log
+
         logger = log.get_logger(__name__)
 
         if call_id not in self._calls:
@@ -121,8 +134,10 @@ class InMemoryCallRepository(CallRepository):
             return
 
         # Update sequence number
-        thought.sequence = len([e for e in self._events[call_id] if isinstance(e, CallThought)])
-        logger.info(f"Appending thought #{thought.sequence} for call {call_id}, iteration {thought.iteration}")
+        thought.sequence = len(
+            [e for e in self._events[call_id] if isinstance(e, CallThought)]
+        )
+        # Update sequence number quietly
 
         # Update call stats
         call = self._calls[call_id]
@@ -130,11 +145,12 @@ class InMemoryCallRepository(CallRepository):
 
         # Store event and notify subscribers
         self._events[call_id].append(thought)
-        logger.info(f"✅ Stored thought in events list (now {len(self._events[call_id])} total events)")
+        # Store event and notify subscribers
         await self._notify_subscribers(call_id, thought)
 
     async def append_call_action(self, call_id: UUID, action: CallAction) -> None:
         from ..utils import log
+
         logger = log.get_logger(__name__)
 
         if call_id not in self._calls:
@@ -142,8 +158,10 @@ class InMemoryCallRepository(CallRepository):
             return
 
         # Update sequence number
-        action.sequence = len([e for e in self._events[call_id] if isinstance(e, CallAction)])
-        logger.info(f"Appending action #{action.sequence} for call {call_id}, iteration {action.iteration}: {action.tool_name}")
+        action.sequence = len(
+            [e for e in self._events[call_id] if isinstance(e, CallAction)]
+        )
+        # Update sequence number quietly
 
         # Update call stats
         call = self._calls[call_id]
@@ -151,35 +169,46 @@ class InMemoryCallRepository(CallRepository):
 
         # Store event and notify subscribers
         self._events[call_id].append(action)
-        logger.info(f"✅ Stored action in events list (now {len(self._events[call_id])} total events)")
+        # Store event and notify subscribers
         await self._notify_subscribers(call_id, action)
 
     async def register_call_done(self, call_id: UUID, result: CallResult) -> None:
         if call := self._calls.get(call_id):
+            # Store result event and notify BEFORE changing status
+            self._events[call_id].append(result)
+            await self._notify_subscribers(call_id, result)
+
+            # Now change status and emit status change
+            old_status = call.status
             call.status = CallStatus.COMPLETED
             call.completed_at = datetime.now(timezone.utc)
             if call.started_at:
-                call.execution_time_ms = int((call.completed_at - call.started_at).total_seconds() * 1000)
+                call.execution_time_ms = int(
+                    (call.completed_at - call.started_at).total_seconds() * 1000
+                )
 
-            # Store result event and notify
-            self._events[call_id].append(result)
-            await self._notify_subscribers(call_id, result)
-            await self._emit_status_change(call_id, CallStatus.RUNNING, CallStatus.COMPLETED)
+            await self._emit_status_change(call_id, old_status, CallStatus.COMPLETED)
 
             # Clean up subscribers for completed call
             await self._cleanup_subscribers(call_id)
 
     async def register_call_error(self, call_id: UUID, error: CallError) -> None:
         if call := self._calls.get(call_id):
+            # Store error event and notify BEFORE changing status
+            self._events[call_id].append(error)
+            await self._notify_subscribers(call_id, error)
+
+            # Now change status and emit status change
+            old_status = call.status
             call.status = CallStatus.FAILED
             call.completed_at = datetime.now(timezone.utc)
             if call.started_at:
-                call.execution_time_ms = int((call.completed_at - call.started_at).total_seconds() * 1000)
+                call.execution_time_ms = int(
+                    (call.completed_at - call.started_at).total_seconds() * 1000
+                )
+            call.error = error.error_message
 
-            # Store error event and notify
-            self._events[call_id].append(error)
-            await self._notify_subscribers(call_id, error)
-            await self._emit_status_change(call_id, CallStatus.RUNNING, CallStatus.FAILED)
+            await self._emit_status_change(call_id, old_status, CallStatus.FAILED)
 
             # Clean up subscribers for failed call
             await self._cleanup_subscribers(call_id)
@@ -190,7 +219,9 @@ class InMemoryCallRepository(CallRepository):
             call.status = CallStatus.CANCELLED
             call.completed_at = datetime.now(timezone.utc)
             if call.started_at:
-                call.execution_time_ms = int((call.completed_at - call.started_at).total_seconds() * 1000)
+                call.execution_time_ms = int(
+                    (call.completed_at - call.started_at).total_seconds() * 1000
+                )
 
             await self._emit_status_change(call_id, old_status, CallStatus.CANCELLED)
 
@@ -219,50 +250,77 @@ class InMemoryCallRepository(CallRepository):
             calls=paginated_calls,
             total=total,
             offset=request.offset,
-            limit=request.limit
+            limit=request.limit,
         )
 
     async def get_call_events(self, call_id: UUID) -> list[CallEvent]:
         from ..utils import log
+
         logger = log.get_logger(__name__)
 
         events = self._events.get(call_id, [])
         logger.info(f"get_call_events for {call_id}: returning {len(events)} events")
         for i, event in enumerate(events):
-            event_type = event.event_type if hasattr(event, 'event_type') else type(event).__name__
-            logger.debug(f"  Event {i+1}: {event_type}, iteration={getattr(event, 'iteration', 'N/A')}")
+            event_type = (
+                event.event_type
+                if hasattr(event, "event_type")
+                else type(event).__name__
+            )
+            logger.debug(
+                f"  Event {i + 1}: {event_type}, iteration={getattr(event, 'iteration', 'N/A')}"
+            )
         # Sort by timestamp, then by iteration for events with same timestamp
-        return sorted(events, key=lambda e: (e.timestamp, getattr(e, 'iteration', 0)))
+        return sorted(events, key=lambda e: (e.timestamp, getattr(e, "iteration", 0)))
 
     async def subscribe_to_call(self, call_id: UUID) -> AsyncIterator[CallEvent]:
         from ..utils import log
+        from ..models.calls import CallStatusChange
+
         logger = log.get_logger(__name__)
 
-        logger.info(f"Subscribe request for call {call_id}")
+        logger.debug(f"Subscribe request for call {call_id}")
         if call_id not in self._calls:
             logger.warning(f"Call {call_id} not found in repository")
             return
 
         # First, yield all historical events
         historical_events = self._events.get(call_id, [])
-        logger.info(f"Found {len(historical_events)} historical events for call {call_id}")
+        logger.debug(
+            f"Found {len(historical_events)} historical events for call {call_id}"
+        )
         for i, event in enumerate(historical_events):
-            event_type = event.event_type if hasattr(event, 'event_type') else type(event).__name__
-            logger.debug(f"Yielding historical event {i+1}/{len(historical_events)}: {event_type}")
+            event_type = (
+                event.event_type
+                if hasattr(event, "event_type")
+                else type(event).__name__
+            )
+            logger.debug(
+                f"Yielding historical event {i + 1}/{len(historical_events)}: {event_type}"
+            )
             yield event
 
         # If the call is already done, return immediately
         call = self._calls.get(call_id)
-        if call and call.status in (CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.CANCELLED):
-            logger.info(f"Call {call_id} already completed with status {call.status.value}, ending subscription")
+        if call and call.status in (
+            CallStatus.COMPLETED,
+            CallStatus.FAILED,
+            CallStatus.CANCELLED,
+        ):
+            logger.debug(
+                f"Call {call_id} already completed with status {call.status.value}, ending subscription"
+            )
             return
 
-        logger.info(f"Call {call_id} is active (status={call.status.value if call else 'unknown'}), subscribing to future events")
+        logger.debug(
+            f"Call {call_id} is active (status={call.status.value if call else 'unknown'}), subscribing to future events"
+        )
 
         # Otherwise, subscribe to future events
         queue = asyncio.Queue()
         self._subscribers[call_id].append(queue)
-        logger.debug(f"Created queue for call {call_id}, now {len(self._subscribers[call_id])} subscribers")
+        logger.debug(
+            f"Created queue for call {call_id}, now {len(self._subscribers[call_id])} subscribers"
+        )
 
         try:
             future_event_count = 0
@@ -270,17 +328,33 @@ class InMemoryCallRepository(CallRepository):
                 logger.debug(f"Waiting for next event on queue for call {call_id}...")
                 event = await queue.get()
                 if event is None:  # Sentinel to stop
-                    logger.info(f"Received stop sentinel for call {call_id} after {future_event_count} future events")
+                    logger.debug(
+                        f"Received stop sentinel for call {call_id} after {future_event_count} future events"
+                    )
                     break
                 future_event_count += 1
-                event_type = event.event_type if hasattr(event, 'event_type') else type(event).__name__
-                logger.info(f"Yielding future event #{future_event_count} for call {call_id}: {event_type}")
+                event_type = (
+                    event.event_type
+                    if hasattr(event, "event_type")
+                    else type(event).__name__
+                )
+                logger.debug(
+                    f"Yielding future event #{future_event_count} for call {call_id}: {event_type}"
+                )
                 yield event
 
-                # Check if call is done after this event
-                call = self._calls.get(call_id)
-                if call and call.status in (CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.CANCELLED):
-                    break
+                # Don't check status here - wait for explicit status_change event
+                # The status_change event itself will tell us when we're done
+                if isinstance(event, CallStatusChange):
+                    if event.new_status in (
+                        CallStatus.COMPLETED,
+                        CallStatus.FAILED,
+                        CallStatus.CANCELLED,
+                    ):
+                        logger.debug(
+                            f"Received terminal status change to {event.new_status.value}, ending subscription"
+                        )
+                        break
         finally:
             # Clean up subscription
             if queue in self._subscribers.get(call_id, []):
@@ -297,29 +371,38 @@ class InMemoryCallRepository(CallRepository):
     async def _notify_subscribers(self, call_id: UUID, event: CallEvent) -> None:
         """Notify all subscribers of a new event."""
         from ..utils import log
+
         logger = log.get_logger(__name__)
 
         subscribers = self._subscribers.get(call_id, [])
-        event_type = event.event_type if hasattr(event, 'event_type') else type(event).__name__
-        logger.info(f"Notifying {len(subscribers)} subscribers of {event_type} event for call {call_id}")
+        event_type = (
+            event.event_type if hasattr(event, "event_type") else type(event).__name__
+        )
+        logger.debug(
+            f"Notifying {len(subscribers)} subscribers of {event_type} event for call {call_id}"
+        )
 
         for i, queue in enumerate(subscribers):
             try:
                 queue.put_nowait(event)
-                logger.debug(f"Successfully notified subscriber {i+1}/{len(subscribers)}")
+                logger.debug(
+                    f"Successfully notified subscriber {i + 1}/{len(subscribers)}"
+                )
             except asyncio.QueueFull:
                 # Skip slow subscribers
-                logger.warning(f"Subscriber {i+1}/{len(subscribers)} queue is full, skipping")
+                logger.warning(
+                    f"Subscriber {i + 1}/{len(subscribers)} queue is full, skipping"
+                )
                 pass
 
-    async def _emit_status_change(self, call_id: UUID, old_status: CallStatus, new_status: CallStatus) -> None:
+    async def _emit_status_change(
+        self, call_id: UUID, old_status: CallStatus, new_status: CallStatus
+    ) -> None:
         """Emit a status change event."""
         from ..models.calls import CallStatusChange
 
         status_change = CallStatusChange(
-            call_id=call_id,
-            old_status=old_status,
-            new_status=new_status
+            call_id=call_id, old_status=old_status, new_status=new_status
         )
         await self._notify_subscribers(call_id, status_change)
 

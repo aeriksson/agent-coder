@@ -53,7 +53,7 @@ export function AppLayout() {
                       "text-xs truncate",
                       agentName === agent.name ? "text-primary-foreground/70" : "text-muted-foreground"
                     )}>
-                      {agent.mode} mode
+                      {agent.description || "AI Agent"}
                     </div>
                   </div>
                 </button>

@@ -19,8 +19,12 @@ class AgentRegistry:
         self.agents: dict[str, Any] = {}
         self.call_repository = call_repository
         self._call_agents: dict[UUID, str] = {}  # call_id -> agent_name mapping
-        self._running_tasks: dict[UUID, asyncio.Task] = {}  # call_id -> asyncio.Task mapping for cancellation
-        self._event_queue: asyncio.Queue = asyncio.Queue()  # Queue for events from Opper SDK
+        self._running_tasks: dict[
+            UUID, asyncio.Task
+        ] = {}  # call_id -> asyncio.Task mapping for cancellation
+        self._event_queue: asyncio.Queue = (
+            asyncio.Queue()
+        )  # Queue for events from Opper SDK
         self._worker_task: asyncio.Task | None = None  # Event worker task
 
     def register_agent(self, name: str, agent: Any):
@@ -28,13 +32,15 @@ class AgentRegistry:
         self.agents[name] = agent
         logger.info(f"Registered agent: {name}")
 
-    async def _handle_thought_created(self, call_id: UUID, data: dict[str, Any]) -> None:
+    async def _handle_thought_created(
+        self, call_id: UUID, data: dict[str, Any]
+    ) -> None:
         """
         Handle thought_created event from Opper SDK.
 
         Data structure: {"iteration": N, "thought": Thought.dict()}
         """
-        logger.info(f"Handling thought_created event for call {call_id}, iteration {data.get('iteration', 0)}")
+        # Process thought silently
         thought_dict = data.get("thought", {})
         iteration = data.get("iteration", 0)
 
@@ -45,23 +51,25 @@ class AgentRegistry:
             goal_achieved=thought_dict.get("goal_achieved", False),
             todo_list=thought_dict.get("todo_list"),
             next_action_needed=thought_dict.get("next_action_needed", False),
-            # Extended fields for tools mode
+            # Extended fields
             tool_name=thought_dict.get("tool_name"),
             tool_parameters=thought_dict.get("tool_parameters"),
             expected_outcome=thought_dict.get("expected_outcome"),
             user_message=thought_dict.get("user_message"),
             # Store raw data
-            raw_data=data
+            raw_data=data,
         )
         await self.call_repository.append_call_thought(call_id, thought)
 
-    async def _handle_action_executed(self, call_id: UUID, data: dict[str, Any]) -> None:
+    async def _handle_action_executed(
+        self, call_id: UUID, data: dict[str, Any]
+    ) -> None:
         """
         Handle action_executed event from Opper SDK.
 
         Data structure: {"iteration": N, "thought": {...}, "action_result": {...}}
         """
-        logger.info(f"Handling action_executed event for call {call_id}, iteration {data.get('iteration', 0)}")
+        # Process action silently
         action_dict = data.get("action_result", {})
         iteration = data.get("iteration", 0)
 
@@ -73,6 +81,7 @@ class AgentRegistry:
         if isinstance(result, str) and result.strip().startswith("{"):
             try:
                 import ast
+
                 parsed_result = ast.literal_eval(result)
                 if isinstance(parsed_result, dict):
                     result = parsed_result
@@ -95,7 +104,7 @@ class AgentRegistry:
             execution_time=action_dict.get("execution_time", 0.0),
             error_message=error_message,
             # Store raw data
-            raw_data=data
+            raw_data=data,
         )
         await self.call_repository.append_call_action(call_id, action)
 
@@ -112,8 +121,6 @@ class AgentRegistry:
         metadata = {}
         if iterations is not None:
             metadata["iterations"] = iterations
-        if data.get("mode"):
-            metadata["mode"] = data["mode"]
         if data.get("goal"):
             metadata["goal"] = data["goal"]
 
@@ -135,10 +142,9 @@ class AgentRegistry:
             citations=citations,
             metadata=metadata if metadata else None,
             # Store raw data
-            raw_data=data
+            raw_data=data,
         )
         await self.call_repository.register_call_done(call_id, result)
-
 
     async def _handle_error_event(self, call_id: UUID, data: Any) -> None:
         """
@@ -146,11 +152,17 @@ class AgentRegistry:
         """
         error = CallError(
             call_id=call_id,
-            error_type=data.get("error_type", "execution_error") if isinstance(data, dict) else "execution_error",
-            error_message=str(data.get("error_message", data) if isinstance(data, dict) else data),
-            recoverable=data.get("recoverable", False) if isinstance(data, dict) else False,
+            error_type=data.get("error_type", "execution_error")
+            if isinstance(data, dict)
+            else "execution_error",
+            error_message=str(
+                data.get("error_message", data) if isinstance(data, dict) else data
+            ),
+            recoverable=data.get("recoverable", False)
+            if isinstance(data, dict)
+            else False,
             # Store raw data
-            raw_data=data if isinstance(data, dict) else {"error": str(data)}
+            raw_data=data if isinstance(data, dict) else {"error": str(data)},
         )
         await self.call_repository.register_call_error(call_id, error)
 
@@ -160,6 +172,7 @@ class AgentRegistry:
 
         Returns a callback function that captures the call_id.
         """
+
         def event_handler(event_type: str, data: Any):
             """
             Handle events from the Opper agent execution.
@@ -172,15 +185,18 @@ class AgentRegistry:
 
             TODO: Make this async when Opper SDK supports async callbacks
             """
-            # Log all events for debugging
-            logger.info(f"Received event '{event_type}' for call {call_id} from agent {agent_name}")
-            logger.info(f"Event data: {data}")
+            # Log only important events
+            logger.debug(
+                f"Received event '{event_type}' for call {call_id} from agent {agent_name}"
+            )
 
             try:
                 # Just put the event on the queue (non-blocking)
                 self._event_queue.put_nowait((event_type, call_id, data))
             except asyncio.QueueFull:
-                logger.error(f"Event queue is full! Dropping event {event_type} for call {call_id}")
+                logger.error(
+                    f"Event queue is full! Dropping event {event_type} for call {call_id}"
+                )
             except Exception as e:
                 logger.error(f"Error queueing event {event_type}: {e}", exc_info=True)
 
@@ -198,18 +214,29 @@ class AgentRegistry:
         for name, agent in self.agents.items():
             schema_info = get_agent_schema(agent)
             result[name] = {
-                "name": agent.name if hasattr(agent, 'name') else name,
-                "description": agent.description if hasattr(agent, 'description') else "",
-                "mode": agent.mode if hasattr(agent, 'mode') else "unknown",
-                "max_iterations": agent.max_iterations if hasattr(agent, 'max_iterations') else 10,
-                "verbose": agent.verbose if hasattr(agent, 'verbose') else False,
-                "tools": [tool.name for tool in agent.tools] if hasattr(agent, 'tools') else [],
+                "name": agent.name if hasattr(agent, "name") else name,
+                "description": agent.description
+                if hasattr(agent, "description")
+                else "",
+                "max_iterations": agent.max_iterations
+                if hasattr(agent, "max_iterations")
+                else 10,
+                "verbose": agent.verbose if hasattr(agent, "verbose") else False,
+                "tools": [tool.name for tool in agent.tools]
+                if hasattr(agent, "tools")
+                else [],
                 "input_schema": schema_info["input_schema"],
                 "output_schema": schema_info["output_schema"],
             }
         return result
 
-    async def execute_agent(self, agent_name: str, call_id: UUID, input_data: dict[str, Any], max_iterations: int | None = None) -> Any:
+    async def execute_agent(
+        self,
+        agent_name: str,
+        call_id: UUID,
+        input_data: dict[str, Any],
+        max_iterations: int | None = None,
+    ) -> Any:
         """Execute an agent with the given input data."""
         agent = self.get_agent(agent_name)
         if not agent:
@@ -220,16 +247,16 @@ class AgentRegistry:
         if max_iterations is not None:
             original_max = agent.max_iterations
             agent.max_iterations = max_iterations
-            logger.info(f"Set max_iterations to {max_iterations} for call {call_id}")
+            logger.debug(f"Set max_iterations to {max_iterations} for call {call_id}")
 
         # Track this call-agent association
         self._call_agents[call_id] = agent_name
 
         # Set up event handler for this specific call
-        original_callback = getattr(agent, 'callback', None)
+        original_callback = getattr(agent, "callback", None)
         event_handler = self._create_event_handler(agent_name, call_id)
         agent.callback = event_handler
-        logger.info(f"Set up event handler for agent {agent_name}, call {call_id}. Handler is {'async' if asyncio.iscoroutinefunction(event_handler) else 'sync'}")
+        logger.debug(f"Set up event handler for agent {agent_name}, call {call_id}")
 
         try:
             # Register call as started
@@ -238,6 +265,7 @@ class AgentRegistry:
             # Run agent.process() in a thread pool to avoid blocking the main event loop
             def run_agent_in_thread():
                 """Run the async agent.process() in a new event loop in a thread."""
+
                 # Use asyncio.run() which creates a new event loop, runs the coroutine,
                 # and cleans up properly. This is thread-safe for parallel calls.
                 async def run_agent_async():
@@ -246,7 +274,9 @@ class AgentRegistry:
                 return asyncio.run(run_agent_async())
 
             # Run in thread pool to avoid blocking the main FastAPI event loop
-            result = await asyncio.get_running_loop().run_in_executor(None, run_agent_in_thread)
+            result = await asyncio.get_running_loop().run_in_executor(
+                None, run_agent_in_thread
+            )
 
             # Check if call was cancelled
             call = await self.call_repository.get_call(call_id)
@@ -267,7 +297,7 @@ class AgentRegistry:
                 call_id=call_id,
                 error_type="execution_error",
                 error_message=str(e),
-                recoverable=False
+                recoverable=False,
             )
             await self.call_repository.register_call_error(call_id, error)
             raise
@@ -275,8 +305,8 @@ class AgentRegistry:
             # Restore original callback
             if original_callback:
                 agent.callback = original_callback
-            elif hasattr(agent, 'callback'):
-                delattr(agent, 'callback')
+            elif hasattr(agent, "callback"):
+                delattr(agent, "callback")
 
             # Restore original max_iterations if we changed it
             if original_max is not None:
@@ -287,7 +317,13 @@ class AgentRegistry:
             # Remove from running tasks
             self._running_tasks.pop(call_id, None)
 
-    def start_agent_execution(self, agent_name: str, call_id: UUID, input_data: dict[str, Any], max_iterations: int | None = None) -> asyncio.Task:
+    def start_agent_execution(
+        self,
+        agent_name: str,
+        call_id: UUID,
+        input_data: dict[str, Any],
+        max_iterations: int | None = None,
+    ) -> asyncio.Task:
         """
         Start agent execution in a background task.
 
@@ -323,7 +359,7 @@ class AgentRegistry:
             try:
                 # Wait for an event from any agent
                 event_type, call_id, data = await self._event_queue.get()
-                logger.info(f"Event worker processing {event_type} for call {call_id}")
+                logger.debug(f"Event worker processing {event_type} for call {call_id}")
 
                 # Process the event based on type
                 if event_type == "thought_created":
@@ -332,6 +368,9 @@ class AgentRegistry:
                     await self._handle_action_executed(call_id, data)
                 elif event_type == "goal_completed":
                     await self._handle_goal_completed(call_id, data)
+                elif event_type == "goal_start":
+                    # Just log it, no action needed
+                    logger.debug(f"Goal started for call {call_id}")
                 elif event_type == "error":
                     await self._handle_error_event(call_id, data)
                 else:

@@ -61,7 +61,7 @@ async def list_agent_calls(
     request: Request,
     status: CallStatus | None = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
 ):
     """
     List calls for a specific agent.
@@ -84,10 +84,7 @@ async def list_agent_calls(
         raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
 
     request_params = CallListRequest(
-        agent_name=agent_name,
-        status=status,
-        limit=limit,
-        offset=offset
+        agent_name=agent_name, status=status, limit=limit, offset=offset
     )
     return await request.app.state.call_repository.list_calls(request_params)
 
@@ -131,7 +128,9 @@ async def cancel_call(call_id: UUID, request: Request):
         raise HTTPException(status_code=404, detail=f"Call '{call_id}' not found")
 
     if call.status not in (CallStatus.PENDING, CallStatus.RUNNING):
-        raise HTTPException(status_code=400, detail=f"Call is already {call.status.value}")
+        raise HTTPException(
+            status_code=400, detail=f"Call is already {call.status.value}"
+        )
 
     # Cancel the running task if it exists
     cancelled = await request.app.state.agent_registry.cancel_agent_execution(call_id)
@@ -177,5 +176,3 @@ async def delete_call(call_id: UUID, request: Request):
     # await request.app.state.call_repository.delete_call(call_id)
 
     return {"success": True, "message": "Call deletion not yet implemented"}
-
-

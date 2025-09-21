@@ -16,7 +16,7 @@ _RFC_4122_VERSION_7_FLAGS = 0x7000_8000_0000_0000
 def _uuid7_get_counter_and_tail():
     """Get a random 42-bit counter and 32-bit tail for UUIDv7."""
     # 42-bit counter with MSB set to 0
-    counter = int.from_bytes(os.urandom(6)) & 0x3ff_ffff_ffff
+    counter = int.from_bytes(os.urandom(6)) & 0x3FF_FFFF_FFFF
     # 32-bit random tail
     tail = int.from_bytes(os.urandom(4))
     return counter, tail
@@ -53,7 +53,7 @@ def uuid7():
             timestamp_ms = _last_timestamp_v7 + 1
         # advance the 42-bit counter
         counter = _last_counter_v7 + 1
-        if counter > 0x3ff_ffff_ffff:
+        if counter > 0x3FF_FFFF_FFFF:
             # advance the 48-bit timestamp
             timestamp_ms += 1
             counter, tail = _uuid7_get_counter_and_tail()
@@ -61,16 +61,16 @@ def uuid7():
             # 32-bit random data
             tail = int.from_bytes(os.urandom(4))
 
-    unix_ts_ms = timestamp_ms & 0xffff_ffff_ffff
+    unix_ts_ms = timestamp_ms & 0xFFFF_FFFF_FFFF
     counter_msbs = counter >> 30
     # keep 12 counter's MSBs and clear variant bits
-    counter_hi = counter_msbs & 0x0fff
+    counter_hi = counter_msbs & 0x0FFF
     # keep 30 counter's LSBs and clear version bits
-    counter_lo = counter & 0x3fff_ffff
+    counter_lo = counter & 0x3FFF_FFFF
     # ensure that the tail is always a 32-bit integer (by construction,
     # it is already the case, but future interfaces may allow the user
     # to specify the random tail)
-    tail &= 0xffff_ffff
+    tail &= 0xFFFF_FFFF
 
     int_uuid_7 = unix_ts_ms << 80
     int_uuid_7 |= counter_hi << 64

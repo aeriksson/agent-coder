@@ -1,6 +1,6 @@
 # {{ project-name }}
 
-FastAPI agent server with the Opper SDK. Includes optional PostgreSQL/Redis persistence and real-time WebSocket monitoring.
+FastAPI agent server with the Opper SDK. Includes optional PostgreSQL persistence and real-time WebSocket monitoring.
 
 ## Development Notes
 
@@ -19,7 +19,7 @@ Look for import errors, syntax errors, or runtime exceptions. The hot reload wil
 __polytope__run(module: {{ project-name }}-add-agent, args: {name: research-assistant, description: "Helps with research tasks"})
 
 # Add dependencies
-__polytope__run(module: {{ project-name }}-add, args: {packages: "your-package"})
+__polytope__run(module: {{ project-name }}-add-dependencies, args: {packages: "your-package"})
 ```
 
 ## API Endpoints

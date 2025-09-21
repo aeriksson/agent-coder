@@ -46,12 +46,9 @@ async def get_agent_info(agent_name: str, request: Request):
     return {
         "name": agent.name,
         "description": agent.description,
-        "mode": agent.mode,
         "max_iterations": agent.max_iterations,
         "verbose": agent.verbose,
-        "tools": [tool.name for tool in agent.tools] if hasattr(agent, 'tools') else [],
+        "tools": [tool.name for tool in agent.tools] if hasattr(agent, "tools") else [],
         "input_schema": schema_info["input_schema"],
         "output_schema": schema_info["output_schema"],
     }
-
-

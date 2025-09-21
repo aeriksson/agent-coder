@@ -13,7 +13,9 @@ from ..utils import log
 logger = log.get_logger(__name__)
 
 
-def create_dynamic_call_spec(agent_definitions: list[AgentDefinition]) -> Type[BaseModel]:
+def create_dynamic_call_spec(
+    agent_definitions: list[AgentDefinition],
+) -> Type[BaseModel]:
     """
     Create a dynamic CallSpec model based on all registered agents.
 
@@ -29,10 +31,10 @@ def create_dynamic_call_spec(agent_definitions: list[AgentDefinition]) -> Type[B
     if not agent_definitions:
         # No agents registered yet - return a basic model
         return create_model(
-            'CallSpec',
+            "CallSpec",
             agent_name=(str, Field(..., description="Agent name")),
             input_data=(dict[str, Any], Field(..., description="Input data")),
-            max_iterations=(int | None, Field(default=None, ge=1, le=100))
+            max_iterations=(int | None, Field(default=None, ge=1, le=100)),
         )
 
     agent_models = []
@@ -41,10 +43,19 @@ def create_dynamic_call_spec(agent_definitions: list[AgentDefinition]) -> Type[B
         agent_name = agent_def.name
 
         AgentCallSpec = create_model(
-            f'{agent_name.replace("-", "_").title()}CallSpec',
-            agent_name=(Literal[agent_name], Field(default=agent_name, description=f"Must be '{agent_name}'")),
-            input_data=(input_model, Field(..., description=f"Input for {agent_def.description}")),
-            max_iterations=(int | None, Field(default=None, ge=1, le=100, description="Max iterations"))
+            f"{agent_name.replace('-', '_').title()}CallSpec",
+            agent_name=(
+                Literal[agent_name],
+                Field(default=agent_name, description=f"Must be '{agent_name}'"),
+            ),
+            input_data=(
+                input_model,
+                Field(..., description=f"Input for {agent_def.description}"),
+            ),
+            max_iterations=(
+                int | None,
+                Field(default=None, ge=1, le=100, description="Max iterations"),
+            ),
         )
 
         agent_models.append(AgentCallSpec)

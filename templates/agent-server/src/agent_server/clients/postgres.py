@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from psycopg_pool import AsyncConnectionPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlmodel import SQLModel # noqa
+from sqlmodel import SQLModel  # noqa
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PostgresConf:
     """PostgreSQL configuration"""
+
     database: str
     user: str
     password: str
@@ -42,6 +43,7 @@ class PostgresConf:
 @dataclass
 class PostgresPoolConf:
     """PostgreSQL connection pool configuration"""
+
     min_size: int = 1
     max_size: int = 10
 
@@ -56,7 +58,11 @@ class PostgresClient:
     Only initializes if USE_POSTGRES is True in configuration.
     """
 
-    def __init__(self, config: PostgresConf | None = None, pool_config: PostgresPoolConf | None = None):
+    def __init__(
+        self,
+        config: PostgresConf | None = None,
+        pool_config: PostgresPoolConf | None = None,
+    ):
         self._config = config
         self._pool_config = pool_config or PostgresPoolConf()
         self._pool: AsyncConnectionPool | None = None
@@ -148,7 +154,9 @@ class PostgresClient:
                 logger.info("Database tables created successfully")
             except Exception as e:
                 # If creation fails (e.g., incompatible schema), drop and recreate
-                logger.exception(f"Failed to create tables, attempting drop and recreate: {e}")
+                logger.exception(
+                    f"Failed to create tables, attempting drop and recreate: {e}"
+                )
                 try:
                     async with self._engine.begin() as conn:
                         await conn.run_sync(metadata.drop_all)
@@ -156,12 +164,16 @@ class PostgresClient:
                         await conn.run_sync(metadata.create_all)
                     logger.info("Database tables recreated successfully")
                 except Exception as drop_error:
-                    logger.exception(f"Failed to drop and recreate tables: {drop_error}")
+                    logger.exception(
+                        f"Failed to drop and recreate tables: {drop_error}"
+                    )
                     raise
         except Exception as e:
             logger.exception(f"Failed to create tables: {e}")
             # Don't fail startup, just log the error
-            logger.warning("Continuing without creating tables. They may need to be created manually.")
+            logger.warning(
+                "Continuing without creating tables. They may need to be created manually."
+            )
 
     async def _monitor_connection(self):
         """Background task to monitor connection health"""
@@ -301,7 +313,7 @@ class PostgresClient:
             return {
                 "connected": False,
                 "status": "connecting",
-                "last_error": self._last_connection_error
+                "last_error": self._last_connection_error,
             }
 
         return {"connected": True, "status": "healthy"}

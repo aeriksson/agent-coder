@@ -11,9 +11,15 @@ class AgentDefinition(BaseModel):
 
     name: str = Field(..., description="Unique agent identifier")
     description: str = Field(..., description="What this agent does")
-    input_schema: Type[BaseModel] = Field(..., description="Pydantic model for input validation")
-    output_schema: Type[BaseModel] = Field(..., description="Pydantic model for output structure")
-    factory: Callable[[], Any] = Field(..., description="Function that creates the agent instance")
+    input_schema: Type[BaseModel] = Field(
+        ..., description="Pydantic model for input validation"
+    )
+    output_schema: Type[BaseModel] = Field(
+        ..., description="Pydantic model for output structure"
+    )
+    factory: Callable[[], Any] = Field(
+        ..., description="Function that creates the agent instance"
+    )
 
     class Config:
         arbitrary_types_allowed = True  # Allow Type[BaseModel] and Callable

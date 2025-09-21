@@ -4,7 +4,7 @@ tools:
     params:
       - id: cmd
         info: The command to run
-        type: [default, str, ./bin/run]
+        type: [default, [either, str, [str]], ./bin/run]
       - id: dev-mode
         info: Whether to run in dev mode (with hot reload, debugging)
         type: [default, bool, true]
@@ -43,7 +43,7 @@ tools:
             - { path: /root/.cache/, source: { type: volume, scope: project, id: {{ project-name | kebab_case}}-dependency-cache } }
             - { path: /lib/py/opper-agent-sdk, source: { type: repo, path: /lib/py/opper-agent-sdk } }
 
-  {{ project-name }}-add:
+  {{ project-name }}-add-dependencies:
     info: Adds one or more packages to the pyproject.toml file. Use this instead of manually editing pyproject.toml to ensure dependencies are installed correctly.
     params:
       - id: packages
@@ -52,7 +52,7 @@ tools:
     run:
       - tool: {{ project-name }}
         args:
-          id: {{ project-name }}-add
+          id: {{ project-name }}-add-dependencies
           restart-policy: never
           cmd: '#pt-js "./bin/uv-add " + params.packages.replace(/[\s,]+/g, " ")'
           create: always
@@ -70,9 +70,10 @@ tools:
   {{ project-name }}-call-agent:
     info: |
       Call an agent with inputs via the API.
-      The quickest way to test your agents!
-
-      The agent server must be running (it starts automatically with create-agent-server).
+      
+      By default spawns a local in-memory server for testing.
+      Set api=true to use the running server at localhost:8000.
+      Set base-url to use a different server endpoint.
     params:
       - id: agent
         info: Name of the agent to call (e.g., 'research-assistant')
@@ -80,18 +81,32 @@ tools:
       - id: inputs
         info: Input data for the agent as JSON (must match the agent's input schema)
         type: any
-      - id: max_iterations
+      - id: max-iterations
         info: Maximum reasoning iterations (1-100)
-        type: [default, int, 10]
+        type: [default, int, 3]
       - id: timeout
         info: Timeout in seconds
         type: [default, int, 60]
+      - id: api
+        info: Use external API instead of spawning local server
+        type: [default, bool, false]
+      - id: base-url
+        info: API base URL (only with api=true)
+        type: [default, str, "http://api:3030"]
     run:
       - tool: {{ project-name }}
         args:
           id: {{ project-name }}-call-agent
           restart-policy: never
-          cmd: '#pt-js `./bin/uv-run test_agent --agent ${params.agent} --input ''${JSON.stringify(params.inputs)}'' --max-iterations ${params.max_iterations} --timeout ${params.timeout}`'
+          cmd: |
+            #pt-js
+            let cmd = ["./bin/uv-run", "test-agent", params.agent, JSON.stringify(params.inputs)];
+            cmd.push("--max-iterations=" + params.maxIterations);
+            cmd.push("--timeout=" + params.timeout);
+            if (params.api) {
+              cmd.push("--api=" + params.baseUrl);
+            }
+            cmd
           create: always
 
   {{ project-name }}-format:
@@ -99,7 +114,6 @@ tools:
     run:
       - tool: {{ project-name }}
         args:
-          id: {{ project-name }}-format
           restart-policy: never
           cmd: ./bin/format
           create: always

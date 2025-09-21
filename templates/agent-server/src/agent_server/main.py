@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
         description="AI agents powered by Opper SDK with call-based execution",
         version="1.0.0",
         docs_url="/docs",
-        lifespan=lifespan
+        lifespan=lifespan,
     )
 
     # Configure CORS
@@ -62,11 +62,15 @@ def main() -> None:
     http_conf = conf.get_http_conf()
     logger.info(f"Starting Opper Agent API on {http_conf.host}:{http_conf.port}")
 
+    import os
+
+    log_level = os.getenv("LOG_LEVEL", "INFO").lower()
+
     uvicorn.run(
         "agent_server.main:app",
         host=http_conf.host,
         port=http_conf.port,
         reload=http_conf.autoreload,
-        log_level="info",
-        log_config=None
+        log_level=log_level,
+        log_config=None,
     )

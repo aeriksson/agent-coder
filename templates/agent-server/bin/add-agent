@@ -26,6 +26,7 @@ create_agent_file() {
     local agent_description="$2"
     local snake_name=$(kebab_to_snake "$agent_name")
     local pascal_name=$(kebab_to_pascal "$agent_name")
+    local upper_snake=$(echo "$snake_name" | tr '[:lower:]' '[:upper:]')
     local agent_file="src/agent_server/agents/${snake_name}_agent.py"
 
     if [ -f "$agent_file" ]; then
@@ -117,15 +118,15 @@ def create_${snake_name}_agent():
         name="${agent_name}",
         description="${agent_description}",
         tools=[example_tool, another_tool],
-        instructions="""You are a helpful AI assistant. Describe what this agent does and how to use it.""",  # Optional: custom instructions for the agent
-        verbose=True,  # Set to False to reduce output
+        instructions="""You are a helpful AI assistant. Answer questions and complete tasks based on the user's goals.""",  # Optional: custom instructions for the agent
+        verbose=False,  # Set to True for debug output
         input_schema=${pascal_name}Input,  # Validates inputs
         output_schema=${pascal_name}Output,  # Structures output
     )
 
 
 # Agent definition with metadata and schemas
-${snake_name.upper()}_AGENT = AgentDefinition(
+${upper_snake}_AGENT = AgentDefinition(
     name="${agent_name}",
     description="${agent_description}",
     input_schema=${pascal_name}Input,
@@ -220,9 +221,8 @@ update_agents_init() {
     import_line="from .${snake_name}_agent import ${upper_snake}_AGENT"
     if ! grep -q "$import_line" "$init_file" 2>/dev/null; then
         # Add import after the AgentDefinition import
-        sed -i.bak '/from \.\.models\.agent_definition import AgentDefinition/a\
-'"$import_line" "$init_file"
-        rm -f "${init_file}.bak"
+        sed '/from \.\.models\.agent_definition import AgentDefinition/a\
+'"$import_line" "$init_file" > "${init_file}.tmp" && mv "${init_file}.tmp" "$init_file"
     fi
 
     # Add to AGENT_DEFINITIONS list
@@ -233,13 +233,12 @@ update_agents_init() {
         # Check if list is empty (only has comment)
         if grep -q "# Agents will be added here" "$init_file"; then
             # Replace the comment with our entry
-            sed -i.bak "s|    # Agents will be added here by the add-agent tool|$agent_entry|" "$init_file"
+            sed "s|    # Agents will be added here by the add-agent tool|$agent_entry|" "$init_file" > "${init_file}.tmp" && mv "${init_file}.tmp" "$init_file"
         else
             # Add after a comment line inside the list
-            sed -i.bak "/^    # Example:/a\\
-$agent_entry" "$init_file"
+            sed "/^    # Example:/a\\
+$agent_entry" "$init_file" > "${init_file}.tmp" && mv "${init_file}.tmp" "$init_file"
         fi
-        rm -f "${init_file}.bak"
         echoh "📝 Registered agent in $init_file"
     else
         echoh "⚠️  Could not find AGENT_DEFINITIONS list in $init_file"
