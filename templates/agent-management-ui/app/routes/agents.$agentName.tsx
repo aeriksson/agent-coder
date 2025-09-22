@@ -15,7 +15,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
     agentClient.getAgent(params.agentName),
     agentClient.listAgentCalls(params.agentName, { limit: 20 })
   ]).then(([agent, callsResponse]) => {
-    store.setAgents({ [params.agentName]: agent });
+    store.upsertAgents({ [params.agentName]: agent });
     callsResponse.calls.forEach(call => store.updateCall(call));
   });
 

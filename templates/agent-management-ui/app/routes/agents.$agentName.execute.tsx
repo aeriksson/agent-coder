@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { useCallStore } from "~/lib/callStore";
 import { agentClient } from "~/lib/agentClient";
 import { Breadcrumb } from "~/components/Breadcrumb";
+import { AgentCard } from "~/components/AgentCard";
 import { ExecuteForm } from "~/components/ExecuteForm";
 import { LoadingState } from "~/components/LoadingState";
 import type { Route } from "./+types/agents.$agentName.execute";
@@ -11,7 +12,7 @@ export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const store = useCallStore.getState();
 
   agentClient.getAgent(params.agentName).then(agent => {
-    store.setAgents({ [params.agentName]: agent });
+    store.upsertAgents({ [params.agentName]: agent });
   });
 
   return {};
@@ -63,8 +64,13 @@ export default function ExecuteAgent() {
 
   return (
     <div className="h-full bg-background p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="space-y-6">
         <Breadcrumb items={breadcrumbItems} />
+
+        <AgentCard 
+          agent={agent} 
+          showExecuteButton={false}
+        />
 
         <ExecuteForm
           agent={agent}

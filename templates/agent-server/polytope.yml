@@ -24,7 +24,7 @@ tools:
       - tool: polytope/python
         args:
           id: pt.param id
-          image: astral/uv:python3.13-bookworm-slim
+          image: astral/uv:python3.13-bookworm
           code: { type: repo, path: . }
           cmd: pt.param cmd
           restart:

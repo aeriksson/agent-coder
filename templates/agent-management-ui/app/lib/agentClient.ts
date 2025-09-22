@@ -131,6 +131,15 @@ export class AgentClient {
 
   // === AGENT MANAGEMENT ===
 
+  async getAgents(): Promise<Agent[]> {
+    const response = await fetch(`${this.baseUrl}/api/v1/agents`);
+    if (!response.ok) {
+      throw new Error(`Failed to list agents: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return Object.values(data);
+  }
+
   async listAgents(): Promise<Record<string, Agent>> {
     const response = await fetch(`${this.baseUrl}/api/v1/agents`);
     if (!response.ok) {
@@ -165,7 +174,22 @@ export class AgentClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to create call: ${response.statusText}`);
+      const errorText = await response.text();
+      let errorMessage = `Failed to create call: ${response.statusText}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            const fieldErrors = errorData.detail.map((e: any) => 
+              `${e.loc?.join('.') || 'unknown field'}: ${e.msg}`
+            ).join(', ');
+            errorMessage = fieldErrors;
+          } else {
+            errorMessage = errorData.detail;
+          }
+        }
+      } catch {}
+      throw new Error(errorMessage);
     }
     return response.json();
   }

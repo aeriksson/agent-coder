@@ -57,33 +57,41 @@ Agents use a Think → Act reasoning loop:
 
 ## Testing Agents
 
-Every agent automatically gets a test script when created. Test your agents using:
+Test your agents using the MCP call-agent tool:
 
-### Quick Test
+### Quick Test with MCP
 ```bash
-# Use the auto-generated test script for your agent
-python -m scripts.test_<agent_name>
-
-# Or use the universal test script
-python -m scripts.test_agent --agent <agent-name> --goal "Your test prompt"
+# Call an agent through MCP (recommended)
+__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, input: '{"goal": "Say hello"}'})
 
 # With custom iterations limit
-python -m scripts.test_agent --agent <agent-name> --goal "Test this" --max-iterations 10
+__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, input: '{"goal": "Test this"}', max_iterations: 10})
 
-# With additional input data
-python -m scripts.test_agent --agent <agent-name> --goal "Process this" --input '{"key": "value"}'
+# With verbose output
+__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, input: '{"goal": "Test"}', verbose: true})
+```
+
+### Direct Script Testing (Advanced)
+For debugging or custom test scenarios, you can use the test scripts directly:
+```bash
+# Use the auto-generated test script
+test-<agent_name>
+
+# Or the universal test script
+test-agent <agent-name> '{"goal": "Your test prompt"}'
+
+# With options
+test-agent <agent-name> '{"goal": "Test"}' --max-iterations 10 --verbose
 ```
 
 ### Test Features
 - **Always goes through the API** - Tests the real agent behavior
-- **Clear output** - Shows progress, events, and results in an easy-to-read format
-- **Iteration control** - Set `max_iterations` to limit reasoning loops (1-100)
-- **Auto-spawn server** - Use `--spawn-server` to start a test server automatically
+- **Clear output** - Shows progress with color-coded log levels
+- **Iteration control** - Set `max_iterations` to limit reasoning loops (default: 3)
+- **Verbose mode** - Use `--verbose` flag to see detailed event data
 
-### Writing Custom Tests
-Tests use the `agent_server.test_utils` module which provides:
+### Test Utilities
+The `agent_server.test_utils` module provides helpers for custom tests:
 - `AgentTestClient` - Full-featured test client
 - `test_agent()` - Simple function for quick tests
 - Clear output helpers: `print_success()`, `print_error()`, `print_info()`
-
-The test utilities are designed to help coding agents verify their implementations work correctly.

@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Bot, Play, ChevronDown, ChevronUp } from "lucide-react";
 import { ToolsList } from "./ToolsList";
-import { InputSchemaDisplay } from "./InputSchemaDisplay";
+import { SchemaDisplay } from "./SchemaDisplay";
 import type { Agent } from "~/lib/types";
 
 interface AgentCardProps {
   agent: Agent;
-  onExecute: () => void;
+  onExecute?: () => void;
+  showExecuteButton?: boolean;
 }
 
-export function AgentCard({ agent, onExecute }: AgentCardProps) {
+export function AgentCard({ agent, onExecute, showExecuteButton = true }: AgentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -19,6 +20,7 @@ export function AgentCard({ agent, onExecute }: AgentCardProps) {
         isExpanded={isExpanded}
         onToggleExpand={() => setIsExpanded(!isExpanded)}
         onExecute={onExecute}
+        showExecuteButton={showExecuteButton}
       />
 
       {agent.description && (
@@ -36,10 +38,11 @@ interface AgentHeaderProps {
   name: string;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  onExecute: () => void;
+  onExecute?: () => void;
+  showExecuteButton?: boolean;
 }
 
-function AgentHeader({ name, isExpanded, onToggleExpand, onExecute }: AgentHeaderProps) {
+function AgentHeader({ name, isExpanded, onToggleExpand, onExecute, showExecuteButton = true }: AgentHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center space-x-4">
@@ -57,13 +60,15 @@ function AgentHeader({ name, isExpanded, onToggleExpand, onExecute }: AgentHeade
         >
           {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
         </button>
-        <button
-          onClick={onExecute}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/80 transition-colors"
-        >
-          <Play className="w-4 h-4" />
-          <span>New Execution</span>
-        </button>
+        {showExecuteButton && onExecute && (
+          <button
+            onClick={onExecute}
+            className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/80 transition-colors"
+          >
+            <Play className="w-4 h-4" />
+            <span>New Execution</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -73,7 +78,6 @@ function AgentQuickInfo({ agent }: { agent: Agent }) {
   return (
     <div className="flex flex-wrap gap-4 text-sm">
       <ToolsList tools={agent.tools} collapsed />
-      <InputSchemaDisplay schema={agent.input_schema} collapsed />
     </div>
   );
 }
@@ -82,7 +86,16 @@ function AgentExpandedDetails({ agent }: { agent: Agent }) {
   return (
     <div className="mt-4 pt-4 border-t space-y-4">
       <ToolsList tools={agent.tools} />
-      <InputSchemaDisplay schema={agent.input_schema} />
+      <SchemaDisplay 
+        schema={agent.input_schema} 
+        title="Input Schema" 
+      />
+      {agent.output_schema && (
+        <SchemaDisplay 
+          schema={agent.output_schema} 
+          title="Output Schema" 
+        />
+      )}
 
       <div className="text-xs text-muted-foreground pt-2">
         {agent.version && <div>Version: {agent.version}</div>}

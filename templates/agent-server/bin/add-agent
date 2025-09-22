@@ -314,6 +314,8 @@ main() {
         echoh "🎉 Agent created successfully!"
         echoh ""
         echoh "Next steps:"
+        echoh "0. READ the generated agent file first to understand the structure: src/agent_server/agents/${snake_name}_agent.py"
+        echoh ""
         echoh "1. Edit the agent file to implement your tools: src/agent_server/agents/${snake_name}_agent.py"
         echoh ""
         echoh "2. CUSTOMIZE the test script with real test inputs: src/scripts/test_${snake_name}.py"

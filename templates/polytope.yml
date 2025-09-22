@@ -1,63 +1,27 @@
 tools:
-  create-agent-server:
-    name: create-agent-server
-    description: "Command to create and start a multi-agent FastAPI server"
+  add-agent-server:
+    name: add-agent-server
     info: |
       Creates and starts a multi-agent FastAPI server that hosts all your agents in one service.
       This command both creates the server code AND automatically starts it running.
-
-      USAGE - Run this exact command:
-      create-agent-server
-      
-      Then add agents with:
-      agent-server-add-agent --name "your-agent"
-
-      DO NOT specify a path to create-agent-server - it's a command name, not a file!
       The server runs with hot reload and includes WebSocket monitoring, test utilities, and API endpoints.
       Creates the server in "agent-server" directory by default.
-    await: [scaffold-agent-service]
-    params:
-      - id: path
-        info: (Optional - rarely needed) Custom directory name. Default "agent-server" is recommended.
-        type: [default, str, agent-server]
+    await: [scaffold-agent-server]
     run:
-      - id: scaffold-agent-service
+      - id: scaffold-agent-server
         tool: polytope/scaffold
         args:
           actions:
             - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: agent-server}
-              path: pt.param path
+              path: agent-server
               add-to-tools: [{tool: default, call: agent-server}]
             - template: https://github.com/opper-ai/opperai-agent-sdk.git
               path: lib/py/opper-agent-sdk
               print-files: []
               on-exists: skip
       - id: agent-server
-        after: {step: scaffold-agent-service}
-        code: |-
-          #pt-clj
-          (-> (clojure.string/replace (:path params) #"[^A-Za-z0-9-]*$" "")
-              (clojure.string/replace  #".*/" "")
-              (pt/call-module {}))
-      - id: scaffold-agent-dashboard
-        tool: polytope/scaffold
-        args:
-          actions:
-            - template: {type: repo, repo: "#pt-clj pt/module-repo-ref", path: agent-management-ui}
-              path: agent-dashboard
-              on-conflict: skip
-              add-to-tools: [{tool: default, call: agent-dashboard}]
-      - id: agent-dashboard
-        after: {step: scaffold-agent-dashboard}
-        code: '#pt-clj (pt/call-module "agent-dashboard" {})'
-  create-agent-dashboard:
-    info: |
-      Creates an agent management dashboard UI for monitoring and testing Opper agents.
-      This React dashboard connects to agent APIs to provide real-time monitoring,
-      agent testing, and execution event streaming via WebSocket.
-      The project uses bun+shadcn+react-router v7 with agent-specific components.
-    await: [scaffold-agent-dashboard]
-    run:
+        after: {step: scaffold-agent-server}
+        code: '#pt-clj (pt/call-module "agent-server" {}))'
       - id: scaffold-agent-dashboard
         tool: polytope/scaffold
         args:

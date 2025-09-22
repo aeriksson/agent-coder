@@ -1,14 +1,33 @@
 import { useNavigate, useParams, Outlet } from "react-router";
-import { Bot, Home, Activity } from "lucide-react";
+import { Bot, Home, Activity, RefreshCw } from "lucide-react";
 import { useCallStore } from "~/lib/callStore";
+import { agentClient } from "~/lib/agentClient";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export function AppLayout() {
   const navigate = useNavigate();
   const { agentName } = useParams();
   const agents = useCallStore(state => state.agents);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const agentList = Object.values(agents);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const freshAgents = await agentClient.getAgents();
+      const store = useCallStore.getState();
+      store.upsertAgents(freshAgents.reduce((acc, agent) => ({ 
+        ...acc, 
+        [agent.name]: agent 
+      }), {}));
+    } catch (error) {
+      console.error('Failed to refresh agents:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -27,7 +46,17 @@ export function AppLayout() {
 
         {/* Agent List */}
         <div className="flex-1 overflow-y-auto p-4">
-          <h2 className="text-sm font-medium text-muted-foreground mb-2">Agents</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-medium text-muted-foreground">Agents</h2>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50"
+              title="Refresh agents"
+            >
+              <RefreshCw className={cn("w-4 h-4 text-muted-foreground", isRefreshing && "animate-spin")} />
+            </button>
+          </div>
           {agentList.length === 0 ? (
             <div className="text-center py-8">
               <Activity className="w-8 h-8 animate-spin mx-auto mb-2 text-muted-foreground" />

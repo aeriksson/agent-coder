@@ -2,9 +2,37 @@
 
 . "$(dirname "$0")/init"
 
-if [ -f /etc/os-release ] && grep -q Alpine /etc/os-release; then
-  apk add -q --no-progress --no-cache watchexec
-  exec watchexec --watch pyproject.toml --restart --shell=none -- uv run --active app
+# Install watchexec on Debian if not already present and hot reload is enabled
+if [ "$HTTP_AUTORELOAD" = "true" ] || [ "$HTTP_AUTORELOAD" = "1" ]; then
+  if ! command -v watchexec >/dev/null 2>&1; then
+    # Detect architecture
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+      WATCHEXEC_ARCH="x86_64"
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+      WATCHEXEC_ARCH="aarch64"
+    else
+      echo "Unsupported architecture: $ARCH, skipping watchexec installation"
+      exec uv run --active app
+    fi
+    
+    # Download and install watchexec quietly
+    WATCHEXEC_VERSION="2.3.2"
+    WATCHEXEC_URL="https://github.com/watchexec/watchexec/releases/download/v${WATCHEXEC_VERSION}/watchexec-${WATCHEXEC_VERSION}-${WATCHEXEC_ARCH}-unknown-linux-musl.deb"
+    
+    echo "Installing watchexec for hot reload..."
+    wget -q -O /tmp/watchexec.deb "$WATCHEXEC_URL" && \
+    dpkg -i /tmp/watchexec.deb >/dev/null 2>&1 && \
+    rm /tmp/watchexec.deb
+  fi
+  
+  # Run with watchexec if available
+  if command -v watchexec >/dev/null 2>&1; then
+    exec watchexec --watch pyproject.toml --restart --shell=none -- uv run --active app
+  else
+    exec uv run --active app
+  fi
 else
+  # Run without hot reload
   exec uv run --active app
 fi

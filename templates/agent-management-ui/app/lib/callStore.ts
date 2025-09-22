@@ -32,6 +32,7 @@ interface CallStore {
 
   // Actions
   setAgents: (agents: Record<string, Agent>) => void;
+  upsertAgents: (agents: Record<string, Agent>) => void;
   setAgentError: (agentName: string, error: string, notFound?: boolean) => void;
   updateCall: (call: CallSummary) => void;
   setCallError: (callId: string, error: string, notFound?: boolean) => void;
@@ -63,6 +64,19 @@ export const useCallStore = create<CallStore>()(
     // Actions
     setAgents: (agents) => set((state) => ({
       agents,
+      agentsMeta: Object.keys(agents).reduce((acc, name) => ({
+        ...acc,
+        [name]: {
+          loading: false,
+          error: null,
+          notFound: false,
+          lastFetch: new Date()
+        }
+      }), state.agentsMeta)
+    })),
+
+    upsertAgents: (agents) => set((state) => ({
+      agents: { ...state.agents, ...agents },
       agentsMeta: Object.keys(agents).reduce((acc, name) => ({
         ...acc,
         [name]: {

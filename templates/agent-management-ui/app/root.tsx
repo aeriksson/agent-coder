@@ -6,7 +6,9 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
-import React from "react";
+import React, { useEffect } from "react";
+import { useCallStore } from "~/lib/callStore";
+import { agentClient } from "~/lib/agentClient";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -123,6 +125,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Load agents on app initialization
+    agentClient.listAgents().then(agents => {
+      const store = useCallStore.getState();
+      store.upsertAgents(agents);
+    }).catch(error => {
+      console.error('Failed to load agents:', error);
+    });
+  }, []);
+
   return <Outlet />;
 }
 
