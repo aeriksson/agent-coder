@@ -57,38 +57,44 @@ Agents use a Think → Act reasoning loop:
 
 ## Testing Agents
 
-Test your agents using the MCP call-agent tool:
+Test your agents using MCP tools:
 
-### Quick Test with MCP
+### Call an Agent (Recommended)
 ```bash
-# Call an agent through MCP (recommended)
-__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, input: '{"goal": "Say hello"}'})
+# Call an agent through MCP
+__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, inputs: {"goal": "Say hello"}})
 
 # With custom iterations limit
-__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, input: '{"goal": "Test this"}', max_iterations: 10})
+__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, inputs: {"goal": "Test this"}, max_iterations: 10})
 
-# With verbose output
-__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, input: '{"goal": "Test"}', verbose: true})
+# With external API instead of spawning local server
+__polytope__run(module: {{ project-name }}-call-agent, args: {agent: hello, inputs: {"goal": "Test"}, api: true})
 ```
 
-### Direct Script Testing (Advanced)
-For debugging or custom test scenarios, you can use the test scripts directly:
+### Custom Test Scripts
+For agents with complex testing needs, create and run custom test scripts:
+
 ```bash
-# Use the auto-generated test script
-test-<agent_name>
+# Create a custom test script
+__polytope__run(module: {{ project-name }}-add-script, args: {script: "test_complex_agent"})
 
-# Or the universal test script
-test-agent <agent-name> '{"goal": "Your test prompt"}'
+# Edit the script at src/scripts/test_complex_agent.py to add your test logic
 
-# With options
-test-agent <agent-name> '{"goal": "Test"}' --max-iterations 10 --verbose
+# Run the custom test script
+__polytope__run(module: {{ project-name }}-run-script, args: {script: "test-complex-agent"})
+```
+
+Each agent also gets an auto-generated test script when created (e.g., `test_<agent_name>`):
+```bash
+# Run an agent's default test script
+__polytope__run(module: {{ project-name }}-run-script, args: {script: "test-<agent_name>"})
 ```
 
 ### Test Features
 - **Always goes through the API** - Tests the real agent behavior
 - **Clear output** - Shows progress with color-coded log levels
 - **Iteration control** - Set `max_iterations` to limit reasoning loops (default: 3)
-- **Verbose mode** - Use `--verbose` flag to see detailed event data
+- **Local server spawning** - Automatically spawns a test server by default
 
 ### Test Utilities
 The `agent_server.test_utils` module provides helpers for custom tests:

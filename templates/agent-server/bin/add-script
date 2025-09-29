@@ -140,8 +140,7 @@ show_completion() {
     echoh ""
     echoh "Next steps:"
     echoh "1. Edit $script_file to add your logic"
-    echoh "2. Test locally: bin/uv-run $script_name"
-    echoh "3. Have agents call: __polytope__run(module: ${script_name%%-*}-run-script, args: {script: $script_name})"
+    echoh "2. Run the script: __polytope__run(module: {{ project-name }}-run-script, args: {script: \"$script_name\"})"
 }
 
 # Main logic

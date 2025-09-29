@@ -38,9 +38,9 @@ import { cn } from "~/lib/utils";                   // utils is in ROOT lib/, no
 **Remember**: `cn` utility is always `@/lib/utils`, everything else is likely `~/`
 
 ## Dependencies
-To add packages, use the polytope-mcp run tool:
-```json
-{"module": "{{ project-name }}-add", "arguments": {"packages": "axios react-query"}}
+To add packages, use the MCP tool:
+```bash
+__polytope__run(module: {{ project-name }}-add-dependencies, args: {packages: "axios react-query"})
 ```
 
 ## Theming & Styling Guidelines

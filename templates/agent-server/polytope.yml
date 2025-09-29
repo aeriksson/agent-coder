@@ -70,7 +70,7 @@ tools:
   {{ project-name }}-call-agent:
     info: |
       Call an agent with inputs via the API.
-      
+
       By default spawns a local in-memory server for testing.
       Set api=true to use the running server at localhost:8000.
       Set base-url to use a different server endpoint.

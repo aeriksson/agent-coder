@@ -140,8 +140,7 @@ class AgentRegistry:
             executive_summary=executive_summary,
             key_findings=key_findings,
             citations=citations,
-            metadata=metadata if metadata else None,
-            # Store raw data
+            metadata=metadata or None,
             raw_data=data,
         )
         await self.call_repository.register_call_done(call_id, result)
@@ -150,19 +149,23 @@ class AgentRegistry:
         """
         Handle error events.
         """
+        if isinstance(data, dict):
+            error_type = data.get("error_type", "execution_error")
+            error_message = str(data.get("error_message", data))
+            recoverable = data.get("recoverable", False)
+            raw_data = data
+        else:
+            error_type = "execution_error"
+            error_message = str(data)
+            recoverable = False
+            raw_data = {"error": str(data)}
+        
         error = CallError(
             call_id=call_id,
-            error_type=data.get("error_type", "execution_error")
-            if isinstance(data, dict)
-            else "execution_error",
-            error_message=str(
-                data.get("error_message", data) if isinstance(data, dict) else data
-            ),
-            recoverable=data.get("recoverable", False)
-            if isinstance(data, dict)
-            else False,
-            # Store raw data
-            raw_data=data if isinstance(data, dict) else {"error": str(data)},
+            error_type=error_type,
+            error_message=error_message,
+            recoverable=recoverable,
+            raw_data=raw_data,
         )
         await self.call_repository.register_call_error(call_id, error)
 

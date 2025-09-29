@@ -16,13 +16,6 @@ from .registry import AgentRegistry
 from .agents import AGENT_DEFINITIONS
 from .utils.agent_utils import cleanup_all_background_tasks
 
-# Silence specific Pydantic V2 deprecation warnings from Opper SDK
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning,
-    message=".*The `dict` method is deprecated; use `model_dump` instead.*",
-)
-
 logger = log.get_logger(__name__)
 
 
@@ -43,12 +36,13 @@ async def init() -> None:
     """
     # Initialize logging
     log.init(conf.get_log_level())
-
-    # Add more initialization tasks here as needed
-    # Examples:
-    # - await init_metrics()
-    # - await validate_environment()
-    # - await warm_caches()
+    
+    # Silence specific Pydantic V2 deprecation warnings from Opper SDK
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        message=".*The `dict` method is deprecated; use `model_dump` instead.*",
+    )
 
 
 async def init_database(app: FastAPI) -> None:

@@ -49,6 +49,10 @@ from typing import Optional
 from opper_agent import Agent, tool
 from agent_server.models.agent_definition import AgentDefinition
 
+# Agent metadata
+AGENT_NAME = "${agent_name}"
+AGENT_DESCRIPTION = "${agent_description}"
+AGENT_INSTRUCTIONS = """You are a helpful AI assistant. Answer questions and complete tasks based on the user's goals."""
 
 # Define the input schema for this agent
 class ${pascal_name}Input(BaseModel):
@@ -111,24 +115,22 @@ def another_tool(value: int) -> str:
 def create_${snake_name}_agent():
     """
     Create the ${agent_name} agent instance.
-
-    ${agent_description}
     """
     return Agent(
-        name="${agent_name}",
-        description="${agent_description}",
+        name=AGENT_NAME,
+        description=AGENT_DESCRIPTION,
         tools=[example_tool, another_tool],
-        instructions="""You are a helpful AI assistant. Answer questions and complete tasks based on the user's goals.""",  # Optional: custom instructions for the agent
+        instructions=AGENT_INSTRUCTIONS,
         verbose=False,  # Set to True for debug output
-        input_schema=${pascal_name}Input,  # Validates inputs
-        output_schema=${pascal_name}Output,  # Structures output
+        input_schema=${pascal_name}Input,
+        output_schema=${pascal_name}Output,
     )
 
 
 # Agent definition with metadata and schemas
 ${upper_snake}_AGENT = AgentDefinition(
-    name="${agent_name}",
-    description="${agent_description}",
+    name=AGENT_NAME,
+    description=AGENT_DESCRIPTION,
     input_schema=${pascal_name}Input,
     output_schema=${pascal_name}Output,
     factory=create_${snake_name}_agent
@@ -314,26 +316,25 @@ main() {
         echoh "🎉 Agent created successfully!"
         echoh ""
         echoh "Next steps:"
-        echoh "0. READ the generated agent file first to understand the structure: src/agent_server/agents/${snake_name}_agent.py"
+        echoh "0. READ the generated agent file first to understand the structure:"
+        echoh "   src/agent_server/agents/${snake_name}_agent.py"
         echoh ""
-        echoh "1. Edit the agent file to implement your tools: src/agent_server/agents/${snake_name}_agent.py"
+        echoh "1. Edit the agent file to implement your tools:"
+        echoh "   src/agent_server/agents/${snake_name}_agent.py"
         echoh ""
-        echoh "2. CUSTOMIZE the test script with real test inputs: src/scripts/test_${snake_name}.py"
-        echoh "   - Update DEFAULT_TEST_GOAL to test your agent's actual functionality"
-        echoh "   - Set DEFAULT_MAX_ITERATIONS (keep it low, e.g. 5-10 for smoke tests)"
-        echoh "   - Add any DEFAULT_INPUT_DATA your agent requires"
-        echoh ""
-        echoh "3. Check server logs to ensure your agent loads without errors:"
+        echoh "2. Check server logs to ensure your agent loads without errors:"
         echoh "   __polytope__logs(container: {{ project-name }}, tail: 100)"
         echoh ""
-        echoh "4. Run the smoke test to verify your agent works:"
-        echoh "   python -m scripts.test_${snake_name}"
+        echoh "3. Test your agent using the MCP tool:"
+        echoh "   __polytope__run(module: {{ project-name }}-call-agent, args: {agent: \"$agent_name\", inputs: {\"goal\": \"Your test\"}})"
         echoh ""
-        echoh "   Or test via Polytope tool:"
-        echoh "   __polytope__run(module: {{ project-name }}-call-agent, args: {agent: \"$agent_name\", inputs: {goal: \"Your test\"}})"
+        echoh "4. (Optional) Customize the test script for repeatable testing:"
+        echoh "   - Edit: src/scripts/test_${snake_name}.py"
+        echoh "   - Update DEFAULT_TEST_INPUT to test your agent's actual functionality"
+        echoh "   - Set DEFAULT_MAX_ITERATIONS (keep it low, e.g. 3-5 for smoke tests)"
         echoh ""
-        echoh "   Or use the universal test script:"
-        echoh "   python -m scripts.test_agent --agent $agent_name --input '{\"goal\": \"Your test\"}' --max-iterations 5"
+        echoh "5. (Optional) Run the customized test script:"
+        echoh "   __polytope__run(module: {{ project-name }}-run-script, args: {script: \"test-${snake_name}\"})"
     else
         exit 1
     fi

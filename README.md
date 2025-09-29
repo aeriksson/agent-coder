@@ -1,22 +1,21 @@
-# Opper Coder
+# Agent Coder
 
-A coding agent flavor for the [Opper Agent SDK](https://github.com/opper-ai/opperai-agent-sdk) using [Polytope](https://polytope.com).
+A coding agent flavor using the [Opper Agent SDK](https://github.com/opper-ai/opperai-agent-sdk) using [Polytope](https://polytope.com) - lets you vibe-code production-ready AI agents.
 
 ## What is this?
 
-This provides a clean template for building AI agents using the Opper SDK. The template includes:
+It's a set of tools you can use with the Polytope MCP server to make your coding agent great at building AI agents.
 
-- **FastAPI backend** with agent endpoints
-- **Example agents** showing tools and flow modes
-- **Simple tools** as starting points
-- **Clean project structure** optimized for agent development
+The core service is `agent-server`. This is a bare-bones server for hosting AI agents built with the Opper Agent SDK. It includes a set of tools that make it easy for your coding agent and for you to build, run and evaluate agents.
+
+There's also a browser dashboard that lets you inspect and interact with your agents.
 
 ## How it works
 
-1. Use the `__polytope__create-agent-api` tool to create a new agent project
-2. The tool instantiates the `templates/python-agent-api` template at your specified path
-3. Your coding agent can then iterate on the project - polytope hot reloads changes automatically
-4. Build custom agents by modifying the examples and adding your own tools/workflows
+1. You prompt your coding agent to build some kind of AI agent
+2. Your coding agent calls the `add-agent-server` tool to scaffold the agent system
+3. The tool instantiates the `agent-server` and `agent-dashboard` in your repo, starts them, and provides a set of tools and context for your coding agent to use
+4. Your coding agent now works in a focused way to build and evaluate agents
 
 ## Prerequisites
 
@@ -69,20 +68,8 @@ in your project directory.
 
 ### Step 5: Create your agent
 
-Ask your coding agent to create a new agent project:
+Ask your coding agent to create your agent, for example:
 
 ```
-Please create a new Opper agent API project at ./my-agent
+Please build a research assistant agent that can investigate any topic by gathering information from multiple sources (Wikipedia, web search), analyzing different perspectives, and synthesizing a comprehensive report with citations.
 ```
-
-This will use the `__polytope__create-agent-api` tool to instantiate the template.
-
-## Example Agent Ideas
-
-Try these prompts to test your setup:
-
-### 1. **"Create a Python REST API client"**
-"Build me a Python REST API client class that can handle GET, POST, PUT, DELETE requests with proper error handling and authentication headers"
-
-### 2. **"Build a smart code reviewer agent"**
-"Create an intelligent code review agent that can analyze Python code for bugs, security issues, performance problems, and style violations. It should provide detailed feedback with suggestions for improvement."
